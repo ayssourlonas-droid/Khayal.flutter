@@ -100,3 +100,24 @@ if "keystoreProperties" not in g:
 
 open(gp, "w", encoding="utf-8").write(g)
 print("android patched:", gp, "| AdMob app id:", ADMOB_APP_ID)
+
+# ───── رفع إصدارات أدوات البناء (مكتبات حديثة مثل androidx.webkit 1.14 تتطلب AGP أحدث و compileSdk 35) ─────
+for name in ("settings.gradle", "settings.gradle.kts"):
+    sp = os.path.join(root, "android", name)
+    if os.path.exists(sp):
+        s = open(sp, encoding="utf-8").read()
+        s = re.sub(r'(com\.android\.application"\s*\)?\s*version\s*"?)[\d.]+', r"\g<1>8.7.3", s)
+        s = re.sub(r'(org\.jetbrains\.kotlin\.android"\s*\)?\s*version\s*"?)[\d.]+', r"\g<1>1.9.24", s)
+        open(sp, "w", encoding="utf-8").write(s)
+        print("patched", sp)
+
+wp = os.path.join(root, "android", "gradle", "wrapper", "gradle-wrapper.properties")
+if os.path.exists(wp):
+    w = open(wp, encoding="utf-8").read()
+    w = re.sub(r"gradle-[\d.]+-(all|bin)\.zip", "gradle-8.9-all.zip", w)
+    open(wp, "w", encoding="utf-8").write(w)
+    print("patched", wp)
+
+g = open(gp, encoding="utf-8").read()
+g = re.sub(r"compileSdk(Version)?\s*=?\s*flutter\.compileSdkVersion", "compileSdk = 35" if kts else "compileSdk 35", g)
+open(gp, "w", encoding="utf-8").write(g)
