@@ -1,7 +1,7 @@
 name: Build apps
 
 # يُبنى تلقائياً عند كل تحديث لأي ملف. ما يُبنى يحدده الرقم في ملف BUILD_TARGET.txt:
-#   1 = تطبيق خيال (games_app)   2 = تطبيق المتحكم (admin_app)   أي شيء آخر = كلاهما
+#   السطر الأول فقط يُقرأ: 1 = خيال، 2 = متحكم، غير ذلك = كلاهما (ما بعد // أو # تعليق)
 on:
   push:
     branches: [main, master]
@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - id: pick
         run: |
-          v=$(tr -d ' \r\n\t' < BUILD_TARGET.txt 2>/dev/null || true)
+          v=$(head -n 1 BUILD_TARGET.txt 2>/dev/null | sed 's|//.*||; s|#.*||' | tr -d ' \r\t' || true)
           echo "BUILD_TARGET = '$v'"
           if [ "$v" = "1" ]; then g=true; a=false
           elif [ "$v" = "2" ]; then g=false; a=true
