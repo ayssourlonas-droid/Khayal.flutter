@@ -13,7 +13,8 @@ import 'test_play_screen.dart';
 class GameFormScreen extends StatefulWidget {
   final Map<String, dynamic>? item;
   final bool isFeatured;
-  const GameFormScreen({super.key, this.item, this.isFeatured = false});
+  final bool fromPending; // لعبة مستوردة تلقائياً بانتظار الاعتماد
+  const GameFormScreen({super.key, this.item, this.isFeatured = false, this.fromPending = false});
   @override
   State<GameFormScreen> createState() => _GameFormScreenState();
 }
@@ -93,11 +94,13 @@ class _GameFormScreenState extends State<GameFormScreen> {
   Future<void> _nextId() async {
     if (id.text.isNotEmpty || !Store.hasGithub) return;
     try {
-      final g = await Github.getJson(gamesFile);
       var max = 0;
-      for (final e in Github.asList(g.data)) {
-        final v = int.tryParse('${e['id']}') ?? 0;
-        if (v > max) max = v;
+      for (final file in [gamesFile, featuredFile, pendingFile]) {
+        final g = await Github.getJson(file);
+        for (final e in Github.asList(g.data)) {
+          final v = int.tryParse('${e['id']}') ?? 0;
+          if (v > max) max = v;
+        }
       }
       if (mounted && id.text.isEmpty) setState(() => id.text = '${max + 1}');
     } catch (_) {}
@@ -227,6 +230,13 @@ class _GameFormScreenState extends State<GameFormScreen> {
         fl.removeAt(fi);
         if (fl.length != before) await Github.putJson(featuredFile, fl, sha: f.sha, message: 'unfeature ${item['id']}');
       }
+      if (widget.fromPending) {
+        final pd = await Github.getJson(pendingFile);
+        final pl = Github.asList(pd.data);
+        final n0 = pl.length;
+        pl.removeWhere((e) => '${e['id']}' == '${item['id']}');
+        if (pl.length != n0) await Github.putJson(pendingFile, pl, sha: pd.sha, message: 'approve ${item['id']}');
+      }
       if (_isNew) await Store.clearDraft();
       if (!mounted) return;
       toast(context, 'تم الرفع ✓');
@@ -245,7 +255,7 @@ class _GameFormScreenState extends State<GameFormScreen> {
     if (!await confirm(context, 'حذف اللعبة', 'حذف "$n" نهائياً من القائمتين؟', ok: 'حذف')) return;
     setState(() => _busy = true);
     try {
-      for (final file in [gamesFile, featuredFile]) {
+      for (final file in [gamesFile, featuredFile, pendingFile]) {
         final g = await Github.getJson(file);
         final list = Github.asList(g.data);
         final before = list.length;
@@ -279,7 +289,7 @@ class _GameFormScreenState extends State<GameFormScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isNew ? 'لعبة جديدة' : 'تعديل: ${titleAr.text}'),
+        title: Text(_isNew ? 'لعبة جديدة' : (widget.fromPending ? 'مراجعة: ${titleAr.text}' : 'تعديل: ${titleAr.text}')),
         actions: [
           if (_isNew) IconButton(icon: const Icon(Icons.cleaning_services), tooltip: 'مسح', onPressed: _clear),
           if (!_isNew) IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: _busy ? null : _delete),
@@ -377,7 +387,7 @@ class _GameFormScreenState extends State<GameFormScreen> {
           FilledButton.icon(
             onPressed: _busy ? null : _save,
             icon: const Icon(Icons.cloud_upload),
-            label: const Padding(padding: EdgeInsets.all(12), child: Text('رفع إلى GitHub')),
+            label: Padding(padding: const EdgeInsets.all(12), child: Text(widget.fromPending ? 'اعتماد ونشر للاعبين' : 'رفع إلى GitHub')),
           ),
           const SizedBox(height: 30),
         ]),

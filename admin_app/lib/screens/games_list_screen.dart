@@ -11,9 +11,10 @@ class GamesListScreen extends StatefulWidget {
 }
 
 class _GamesListScreenState extends State<GamesListScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 2, vsync: this);
+  late final TabController _tabs = TabController(length: 3, vsync: this);
   List<Map<String, dynamic>> _games = [];
   List<Map<String, dynamic>> _featured = [];
+  List<Map<String, dynamic>> _pending = [];
   bool _loading = true;
   String _q = '';
   String _filter = 'all';
@@ -32,6 +33,7 @@ class _GamesListScreenState extends State<GamesListScreen> with SingleTickerProv
       final f = await Github.getJson(featuredFile);
       _games = Github.asList(g.data);
       _featured = Github.asList(f.data);
+      _pending = Github.asList((await Github.getJson(pendingFile)).data);
     } catch (e) {
       if (mounted) toast(context, '$e', error: true);
     }
@@ -41,7 +43,7 @@ class _GamesListScreenState extends State<GamesListScreen> with SingleTickerProv
   Map _m(dynamic v) => v is Map ? v : {};
 
   List<Map<String, dynamic>> get _shown {
-    final src = _tabs.index == 0 ? _games : _featured;
+    final src = _tabs.index == 0 ? _games : (_tabs.index == 1 ? _featured : _pending);
     return src.where((g) {
       final main = _m(g['main_scene']);
       final t = '${main['title_ar'] ?? ''} ${main['title_en'] ?? ''}'.toLowerCase();
@@ -69,6 +71,7 @@ class _GamesListScreenState extends State<GamesListScreen> with SingleTickerProv
         bottom: TabBar(controller: _tabs, tabs: [
           Tab(text: 'الألعاب (${_games.length})'),
           Tab(text: 'المميزة (${_featured.length})'),
+          Tab(text: 'للمراجعة (${_pending.length})'),
         ]),
       ),
       floatingActionButton: FloatingActionButton(
@@ -146,6 +149,7 @@ class _GamesListScreenState extends State<GamesListScreen> with SingleTickerProv
                   builder: (_) => GameFormScreen(
                         item: g,
                         isFeatured: _featured.any((f) => '${f['id']}' == '${g['id']}'),
+                        fromPending: _tabs.index == 2,
                       )));
           _load();
         },
