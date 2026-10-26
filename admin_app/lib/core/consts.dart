@@ -18,6 +18,7 @@ const orientations = ['portrait', 'landscape', 'both'];
 
 const gamesFile = 'data_games.json';
 const featuredFile = 'data_games_featured.json';
+const pendingFile = 'data_games_pending.json';
 const versionFile = 'version.json';
 
 const defaultOwner = 'ayssersalhi-a11y';

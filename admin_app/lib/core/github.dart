@@ -27,7 +27,7 @@ class Github {
       if (t.isNotEmpty) 'Authorization': t.startsWith('ghp_') ? 'token $t' : 'Bearer $t',
       'Accept': raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'gamehub-admin',
+      'User-Agent': 'gamehub-control',
     };
   }
 
