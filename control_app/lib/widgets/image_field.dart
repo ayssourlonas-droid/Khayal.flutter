@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../core/cloudinary.dart';
+import '../core/theme.dart';
 import '../screens/image_editor_screen.dart';
 import 'ui.dart';
 
@@ -71,6 +72,8 @@ class _ImageFieldState extends State<ImageField> {
   Widget build(BuildContext context) {
     final url = widget.controller.text.trim();
     return Card(
+      color: Pal.surface,
+      shape: Pal.cardShape(),
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(10),
