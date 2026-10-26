@@ -5,6 +5,7 @@ import '../core/consts.dart';
 import '../core/github.dart';
 import '../core/license_checker.dart';
 import '../core/store.dart';
+import '../core/theme.dart';
 import '../widgets/image_field.dart';
 import '../widgets/ui.dart';
 import 'test_play_screen.dart';
@@ -299,7 +300,7 @@ class _GameFormScreenState extends State<GameFormScreen> {
         absorbing: _busy,
         child: ListView(padding: const EdgeInsets.all(14), children: [
           if (_busy) const LinearProgressIndicator(),
-          if (_status.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(_status, style: const TextStyle(color: Colors.amberAccent))),
+          if (_status.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(_status, style: const TextStyle(color: Pal.warn))),
           Row(children: [
             SizedBox(
               width: 90,
@@ -346,14 +347,15 @@ class _GameFormScreenState extends State<GameFormScreen> {
               label: const Text('جرّب اللعبة'),
             ),
           ),
-          const Text('الرخصة والمصدر', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          const Text('الرخصة والمصدر', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Pal.lime)),
           const SizedBox(height: 8),
           field(source, 'رابط المصدر (مستودع GitHub أو صفحة اللعبة)', type: TextInputType.url, onChanged: _changed),
           FilledButton.tonalIcon(
               onPressed: _checkLicense, icon: const Icon(Icons.verified_user), label: const Text('فحص الرخصة تلقائياً')),
           if (_lic != null)
             Card(
-              color: _lic!.allowed ? Colors.green.shade900 : Colors.red.shade900,
+              color: _lic!.allowed ? const Color(0xFF12482B) : const Color(0xFF5A1717),
+              shape: Pal.cardShape(_lic!.allowed ? Pal.ok : Pal.bad),
               margin: const EdgeInsets.only(top: 10),
               child: Padding(padding: const EdgeInsets.all(12), child: Text(_lic!.message)),
             ),

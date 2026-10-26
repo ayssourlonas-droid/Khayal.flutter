@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/consts.dart';
 import '../core/github.dart';
+import '../core/theme.dart';
 import '../widgets/ui.dart';
 import 'game_form_screen.dart';
 
@@ -68,7 +69,7 @@ class _GamesListScreenState extends State<GamesListScreen> with SingleTickerProv
     return Scaffold(
       appBar: AppBar(
         title: const Text('الألعاب'),
-        bottom: TabBar(controller: _tabs, tabs: [
+        bottom: TabBar(controller: _tabs, indicatorColor: Pal.lime, labelColor: Pal.lime, unselectedLabelColor: Colors.white70, tabs: [
           Tab(text: 'الألعاب (${_games.length})'),
           Tab(text: 'المميزة (${_featured.length})'),
           Tab(text: 'للمراجعة (${_pending.length})'),
@@ -127,19 +128,25 @@ class _GamesListScreenState extends State<GamesListScreen> with SingleTickerProv
     final poster = '${main['poster_url'] ?? ''}';
     final why = validateGame(g);
     return Card(
+      color: Pal.surface,
+      shape: Pal.cardShape(why.isEmpty ? null : Pal.warn),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       child: ListTile(
-        leading: SizedBox(
-          width: 52,
-          child: poster.startsWith('http')
-              ? Image.network(poster, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image))
-              : const Icon(Icons.videogame_asset),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(
+            width: 52,
+            height: 52,
+            child: poster.startsWith('http')
+                ? Image.network(poster, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image))
+                : const Icon(Icons.videogame_asset),
+          ),
         ),
         title: Text('${main['title_ar'] ?? '?'}'),
         subtitle: Text(
           '#${g['id']} · ★ ${main['app_rating'] ?? 0} · ${g['release_year'] ?? ''} · ${d['license'] ?? '-'}'
           '${why.isEmpty ? '' : '\n⚠️ $why'}',
-          style: TextStyle(color: why.isEmpty ? null : Colors.orangeAccent),
+          style: TextStyle(color: why.isEmpty ? null : Pal.warn),
         ),
         isThreeLine: why.isNotEmpty,
         onTap: () async {
