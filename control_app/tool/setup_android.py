@@ -11,7 +11,7 @@ import os
 import re
 import sys
 
-APP_NAME = os.environ.get("APP_NAME") or "متحكم الألعاب"
+APP_NAME = os.environ.get("APP_NAME") or "Game Control"
 
 root = sys.argv[1] if len(sys.argv) > 1 else "."
 app_dir = os.path.join(root, "android", "app")
