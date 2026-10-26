@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../core/ads_manager.dart';
@@ -10,6 +11,40 @@ import '../widgets/net_loader.dart';
 /// يقابل GameScreen.gd + GameWebView.gd + إضافة KhayalWebView:
 /// يشغّل لعبة الويب داخل WebView محصّن (https فقط، بلا جسر JS، تنقّل داخل نفس الموقع،
 /// لا تجاوز لأخطاء SSL، لا User-Agent مزيّف). البانر يُخفى أثناء اللعب (سياسة AdMob).
+/// طبقة التوحيد: تُحقن في كل لعبة بعد التحميل دون تعديل ملفاتها.
+/// محافِظة عمداً: لا تخفي التمرير ولا تغيّر حجم أي عنصر حتى لا تكسر لعبة.
+const String _kWrapperJs = r"""
+(function () {
+  try {
+    if (window.__khayalWrapped) return;
+    window.__khayalWrapped = true;
+    // منع تكبير الصفحة باللمس (إن لم تكن اللعبة تحدد viewport بنفسها نضيف واحداً)
+    var m = document.querySelector('meta[name=viewport]');
+    if (!m) {
+      m = document.createElement('meta');
+      m.name = 'viewport';
+      (document.head || document.documentElement).appendChild(m);
+      m.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+    } else if (!/user-scalable/.test(m.content)) {
+      m.content += ', maximum-scale=1, user-scalable=no';
+    }
+    // إزالة وميض اللمس وتحديد النص وقائمة الضغط المطوّل
+    var st = document.createElement('style');
+    st.textContent = '*{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}' +
+      'html,body{-webkit-user-select:none;user-select:none;overscroll-behavior:none;background:#000;}' +
+      'input,textarea{-webkit-user-select:text;user-select:text;}';
+    (document.head || document.documentElement).appendChild(st);
+    document.addEventListener('contextmenu', function (e) { e.preventDefault(); }, true);
+    // منع فتح نوافذ/تبويبات جديدة
+    window.open = function () { return null; };
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[target]') : null;
+      if (a && a.target && a.target !== '_self') a.target = '_self';
+    }, true);
+  } catch (e) {}
+})();
+""";
+
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
 
@@ -24,6 +59,7 @@ class _GameScreenState extends State<GameScreen> {
   String _host = '';
   String? _status;
   bool _loading = true;
+  String _orientation = 'portrait';
 
   @override
   void initState() {
@@ -35,6 +71,8 @@ class _GameScreenState extends State<GameScreen> {
       _loading = false;
       return;
     }
+    _orientation = ((_game['details_scene'] as Map)['orientation'] ?? 'portrait').toString();
+    _applyOrientation();
     _url = ((_game['details_scene'] as Map)['play_url'] ?? '').toString().trim();
     AppState.currentGameUrl = _url;
     final uri = Uri.tryParse(_url);
@@ -45,6 +83,7 @@ class _GameScreenState extends State<GameScreen> {
     }
     _host = uri.host;
 
+    WebViewController? c0;
     final c = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted) // الألعاب تحتاج JS؛ لا يوجد أي JavaScriptChannel
       ..setBackgroundColor(AppColors.gameBg)
@@ -61,6 +100,7 @@ class _GameScreenState extends State<GameScreen> {
           if (mounted) setState(() => _loading = true);
         },
         onPageFinished: (_) {
+          c0?.runJavaScript(_kWrapperJs);
           if (mounted) setState(() => _loading = false);
         },
         onWebResourceError: (e) {
@@ -74,8 +114,30 @@ class _GameScreenState extends State<GameScreen> {
           }
         },
       ));
+    c0 = c;
     _controller = c;
     c.loadRequest(Uri.parse(_url));
+  }
+
+  void _applyOrientation() {
+    switch (_orientation) {
+      case 'landscape':
+        SystemChrome.setPreferredOrientations(
+            [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+        break;
+      case 'both':
+        SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+        break;
+      default:
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    }
+  }
+
+  @override
+  void dispose() {
+    // التطبيق كله عمودي: نعيد القفل عند الخروج من اللعبة
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    super.dispose();
   }
 
   void _reload() {
@@ -90,7 +152,7 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final s = MediaQuery.of(context).size.width / 1080; // وحدة التصميم
+    final s = MediaQuery.of(context).size.shortestSide / 1080; // وحدة التصميم (تصغر الأشرطة في الوضع الأفقي)
     final title = ((_game['main_scene'] is Map ? _game['main_scene']['title_ar'] : '') ?? '').toString();
     final credit = _game.isEmpty ? '' : GameLibrary.creditLine(_game);
 
