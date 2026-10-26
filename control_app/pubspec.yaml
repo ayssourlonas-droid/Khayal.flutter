@@ -1,4 +1,4 @@
-name: gamehub_admin
+name: gamehub_control
 description: تطبيق التحكم بألعاب الويب (Flutter) — نسخة معاد كتابتها من مشروع Godot "mota7akm".
 publish_to: "none"
 version: 1.0.0+1

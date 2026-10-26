@@ -1,4 +1,4 @@
-# متحكم الألعاب (Flutter)
+# Game Control (Flutter)
 
 نسخة Flutter من تطبيق التحكم (mota7akm) لإدارة ألعاب الويب المرخّصة. تُبنى كـ APK واحد لمعمارية arm64-v8a.
 
@@ -11,5 +11,5 @@
 - المفاتيح تُحفظ على الهاتف فقط ولا تُرفع إلى المستودع
 
 ## البناء
-ارفع الملفات إلى مستودع جديد ثم افتح Actions ← Build Admin APK (arm64) ← حمّل `gamehub-admin-apk`.
+ارفع الملفات إلى مستودع جديد ثم افتح Actions ← Build apps ← حمّل `gamehub-control-apk`.
 اختياري: Variables → `APP_NAME`. للتوقيع: أسرار `KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD`.
