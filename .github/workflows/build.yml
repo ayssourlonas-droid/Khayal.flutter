@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       games: ${{ steps.pick.outputs.games }}
-      admin: ${{ steps.pick.outputs.admin }}
+      control: ${{ steps.pick.outputs.control }}
     steps:
       - uses: actions/checkout@v4
       - id: pick
@@ -23,7 +23,7 @@ jobs:
           elif [ "$v" = "2" ]; then g=false; a=true
           else g=true; a=true; fi
           echo "games=$g" >> "$GITHUB_OUTPUT"
-          echo "admin=$a" >> "$GITHUB_OUTPUT"
+          echo "control=$a" >> "$GITHUB_OUTPUT"
   games:
     needs: select
     if: ${{ needs.select.outputs.games == 'true' }}
@@ -84,14 +84,14 @@ jobs:
           name: gamehub-aab
           path: games_app/build/app/outputs/bundle/release/*.aab
 
-  admin:
+  control:
     needs: select
-    if: ${{ needs.select.outputs.admin == 'true' }}
+    if: ${{ needs.select.outputs.control == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     defaults:
       run:
-        working-directory: admin_app
+        working-directory: control_app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -105,11 +105,11 @@ jobs:
           cache: true
       - name: Create Android scaffold
         run: |
-          flutter create --org com.lamoushi --project-name gamehub_admin --platforms android .
+          flutter create --org com.lamoushi --project-name gamehub_control --platforms android .
           rm -rf test
       - name: Patch Android config
         env:
-          APP_NAME: ${{ vars.ADMIN_APP_NAME }}
+          APP_NAME: ${{ vars.CONTROL_APP_NAME }}
         run: python3 tool/setup_android.py .
       - name: Prepare signing key
         env:
@@ -132,5 +132,5 @@ jobs:
         run: flutter build apk --release --target-platform android-arm64
       - uses: actions/upload-artifact@v4
         with:
-          name: gamehub-admin-apk
-          path: admin_app/build/app/outputs/flutter-apk/app-release.apk
+          name: gamehub-control-apk
+          path: control_app/build/app/outputs/flutter-apk/app-release.apk
