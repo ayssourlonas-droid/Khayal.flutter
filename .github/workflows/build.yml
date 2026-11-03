@@ -1,7 +1,8 @@
 name: Build apps
 
 # يُبنى تلقائياً عند كل تحديث لأي ملف. ما يُبنى يحدده الرقم في ملف BUILD_TARGET.txt:
-#   السطر الأول فقط يُقرأ: 1 = خيال، 2 = متحكم، غير ذلك = كلاهما (ما بعد // أو # تعليق)
+#   السطر الأول فقط يُقرأ: 1 = خيال، 2 = متحكم، 12 أو 21 = كلاهما، وأي شيء آخر (لا 1 ولا 2) = لا يبني شيئاً
+#   (ما بعد // أو # تعليق)
 on:
   push:
     branches: [main, master]
@@ -19,9 +20,10 @@ jobs:
         run: |
           v=$(head -n 1 BUILD_TARGET.txt 2>/dev/null | sed 's|//.*||; s|#.*||' | tr -d ' \r\t' || true)
           echo "BUILD_TARGET = '$v'"
-          if [ "$v" = "1" ]; then g=true; a=false
-          elif [ "$v" = "2" ]; then g=false; a=true
-          else g=true; a=true; fi
+          g=false; a=false
+          case "$v" in *1*) g=true;; esac
+          case "$v" in *2*) a=true;; esac
+          echo "games=$g control=$a"
           echo "games=$g" >> "$GITHUB_OUTPUT"
           echo "control=$a" >> "$GITHUB_OUTPUT"
   games:
@@ -128,6 +130,8 @@ jobs:
             } > android/key.properties
           fi
       - run: flutter pub get
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
       - name: Build single arm64 APK
         run: flutter build apk --release --target-platform android-arm64
       - uses: actions/upload-artifact@v4
