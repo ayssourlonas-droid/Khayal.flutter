@@ -1,0 +1,476 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'actions_api.dart';
+import 'theme.dart';
+import 'ui.dart';
+import 'discover_tab.dart';
+
+/// استيراد ألعاب الويب عبر GitHub Actions ومتابعة تشغيلاتها (نتيجة، أخطاء، إلغاء، إعادة).
+class ActionsScreen extends StatefulWidget {
+  const ActionsScreen({super.key});
+  @override
+  State<ActionsScreen> createState() => _ActionsScreenState();
+}
+
+class _ActionsScreenState extends State<ActionsScreen> with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 3, vsync: this);
+
+  bool _busy = false;
+  static const _wf = 'import-game.yml';
+
+  // ── الاستيراد ──
+  final repoUrl = TextEditingController();
+  final tags = TextEditingController();
+  final titleAr = TextEditingController();
+  final subdir = TextEditingController();
+  final buildCmd = TextEditingController();
+  String orientation = 'portrait';
+  bool autoPublish = false;
+  String prune = 'smart';
+  bool aiTest = false;
+  bool media = true;
+  final aiSteps = TextEditingController(text: '20');
+
+  // ── السجل ──
+  List<Map<String, dynamic>> _runs = [];
+  bool _loadingRuns = true;
+  String? _runsErr;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRuns();
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (_runs.any((r) => r['status'] != 'completed')) _loadRuns(silent: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadRuns({bool silent = false}) async {
+    if (!silent) setState(() => _loadingRuns = true);
+    try {
+      final r = await ActionsApi.runs(_wf);
+      if (mounted) setState(() {
+        _runs = r;
+        _runsErr = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _runsErr = '$e');
+    }
+    if (mounted) setState(() => _loadingRuns = false);
+  }
+
+  Future<void> _startImport() async {
+    final url = repoUrl.text.trim();
+    if (!url.startsWith('https://github.com/')) {
+      toast(context, 'ضع رابط مستودع GitHub يبدأ بـ https://github.com/', error: true);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await ActionsApi.dispatch(_wf, {
+        'repo_url': url,
+        'orientation': orientation,
+        'auto_publish': autoPublish ? 'yes' : 'no',
+        'prune': prune,
+        'media': media ? 'safe' : 'off',
+        'ai_test': aiTest ? 'yes' : 'no',
+        if (aiTest) 'ai_steps': aiSteps.text.trim().isEmpty ? '20' : aiSteps.text.trim(),
+        if (tags.text.trim().isNotEmpty) 'tags': tags.text.trim(),
+        if (titleAr.text.trim().isNotEmpty) 'title_ar': titleAr.text.trim(),
+        if (subdir.text.trim().isNotEmpty) 'subdir': subdir.text.trim(),
+        if (buildCmd.text.trim().isNotEmpty) 'build_cmd': buildCmd.text.trim(),
+      });
+      if (mounted) toast(context, 'بدأ الاستيراد ✓');
+      _tabs.animateTo(2);
+      await Future.delayed(const Duration(seconds: 3));
+      _loadRuns();
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('استيراد وإدارة الألعاب'),
+        bottom: TabBar(
+          controller: _tabs,
+          indicatorColor: Pal.lime,
+          labelColor: Pal.lime,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [Tab(text: 'استيراد لعبة'), Tab(text: 'اكتشاف'), Tab(text: 'السجل')],
+        ),
+      ),
+      body: TabBarView(controller: _tabs, children: [_runTab(), DiscoverTab(onStarted: () => _loadRuns(silent: true)), _logTab()]),
+    );
+  }
+
+  // ───────────── تبويب التشغيل ─────────────
+  Widget _runTab() {
+    return AbsorbPointer(
+      absorbing: _busy,
+      child: ListView(padding: const EdgeInsets.all(14), children: [
+        if (_busy) const LinearProgressIndicator(),
+        _section('استيراد لعبة من GitHub', Icons.download_for_offline),
+        field(repoUrl, 'رابط مستودع اللعبة', hint: 'https://github.com/owner/repo', type: TextInputType.url),
+        DropdownButtonFormField<String>(
+          value: orientation,
+          decoration: const InputDecoration(labelText: 'اتجاه الشاشة'),
+          items: const [
+            DropdownMenuItem(value: 'portrait', child: Text('portrait')),
+            DropdownMenuItem(value: 'landscape', child: Text('landscape')),
+            DropdownMenuItem(value: 'both', child: Text('both')),
+          ],
+          onChanged: (v) => setState(() => orientation = v ?? orientation),
+        ),
+        DropdownButtonFormField<String>(
+          value: prune,
+          decoration: const InputDecoration(labelText: 'تقليل الملفات'),
+          items: const [
+            DropdownMenuItem(value: 'smart', child: Text('ذكي: حذف غير اللازم مع تحقق بالتجربة (موصى به)')),
+            DropdownMenuItem(value: 'junk', child: Text('ملفات المطوّر والتوثيق فقط')),
+            DropdownMenuItem(value: 'off', child: Text('بدون حذف')),
+          ],
+          onChanged: (v) => setState(() => prune = v ?? prune),
+        ),
+        const SizedBox(height: 6),
+        SwitchListTile(
+          value: autoPublish,
+          onChanged: (v) => setState(() => autoPublish = v),
+          title: const Text('نشر للاعبين مباشرة إن نجح كل شيء'),
+          subtitle: const Text('إن أُغلق: تذهب اللعبة إلى "للمراجعة"'),
+        ),
+        SwitchListTile(
+          value: media,
+          onChanged: (v) => setState(() => media = v),
+          title: const Text('تحسين الوسائط'),
+          subtitle: const Text('صور→WebP، صوت→Opus، خطوط→WOFF2، فيديو أخف. مع اختبار وتراجع تلقائي'),
+        ),
+        SwitchListTile(
+          value: aiTest,
+          onChanged: (v) => setState(() => aiTest = v),
+          title: const Text('اختبار بالذكاء الاصطناعي'),
+          subtitle: const Text('يلزم حفظ المفتاح وإرساله لأسرار GitHub من الإعدادات'),
+        ),
+        if (aiTest) field(aiSteps, 'عدد الخطوات (3-60)'),
+        field(tags, 'التصنيفات (اختياري)'),
+        field(titleAr, 'الاسم بالعربية (اختياري)'),
+        ExpansionTile(
+          title: const Text('خيارات متقدمة'),
+          children: [
+            const SizedBox(height: 6),
+            field(subdir, 'مجلد الويب داخل المستودع (اختياري)'),
+            field(buildCmd, 'أمر بناء مخصص (اختياري)'),
+          ],
+        ),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: _startImport,
+          icon: const Icon(Icons.rocket_launch),
+          label: const Padding(padding: EdgeInsets.all(12), child: Text('ابدأ الاستيراد')),
+        ),
+        const SizedBox(height: 30),
+      ]),
+    );
+  }
+
+  Widget _section(String t, IconData i) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(children: [
+          Icon(i, color: Pal.lime),
+          const SizedBox(width: 8),
+          Text(t, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Pal.lime)),
+        ]),
+      );
+
+  // ───────────── تبويب السجل ─────────────
+  Widget _logTab() {
+    if (_loadingRuns) return const Center(child: CircularProgressIndicator());
+    if (_runsErr != null) {
+      return ListView(padding: const EdgeInsets.all(20), children: [Text(_runsErr!, style: const TextStyle(color: Pal.bad))]);
+    }
+    return RefreshIndicator(
+      onRefresh: _loadRuns,
+      child: _runs.isEmpty
+          ? ListView(children: const [SizedBox(height: 120), Center(child: Text('لا توجد تشغيلات'))])
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _runs.length,
+              itemBuilder: (_, i) => _runCard(_runs[i]),
+            ),
+    );
+  }
+
+  Widget _runCard(Map<String, dynamic> r) {
+    final st = '${r['status']}';
+    final cc = '${r['conclusion']}';
+    final running = st != 'completed';
+    Widget icon;
+    Color color;
+    String label;
+    if (running) {
+      icon = const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5));
+      color = Pal.purple;
+      label = st == 'queued' ? 'في الانتظار' : 'يعمل';
+    } else if (cc == 'success') {
+      icon = const Icon(Icons.check_circle, color: Pal.ok);
+      color = Pal.ok;
+      label = 'نجح';
+    } else if (cc == 'cancelled') {
+      icon = const Icon(Icons.cancel, color: Colors.grey);
+      color = Colors.grey;
+      label = 'أُلغي';
+    } else {
+      icon = const Icon(Icons.error, color: Pal.bad);
+      color = Pal.bad;
+      label = 'فشل';
+    }
+    return Card(
+      color: Pal.surface,
+      shape: Pal.cardShape(color),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      child: ListTile(
+        leading: icon,
+        title: Text('${r['name']} #${r['run_number']}'),
+        subtitle: Text('$label · ${_ago(r['created_at'])}\n${(r['display_title'] ?? '').toString()}',
+            maxLines: 2, overflow: TextOverflow.ellipsis),
+        isThreeLine: true,
+        trailing: const Icon(Icons.chevron_left),
+        onTap: () async {
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => RunDetailScreen(run: r)));
+          _loadRuns(silent: true);
+        },
+      ),
+    );
+  }
+}
+
+String _ago(dynamic iso) {
+  final t = DateTime.tryParse('$iso')?.toLocal();
+  if (t == null) return '';
+  final d = DateTime.now().difference(t);
+  if (d.inMinutes < 1) return 'الآن';
+  if (d.inMinutes < 60) return 'قبل ${d.inMinutes} د';
+  if (d.inHours < 24) return 'قبل ${d.inHours} س';
+  return 'قبل ${d.inDays} يوم';
+}
+
+String _size(dynamic b) {
+  final n = (b is num) ? b.toDouble() : 0.0;
+  if (n >= 1048576) return '${(n / 1048576).toStringAsFixed(1)} MB';
+  return '${(n / 1024).toStringAsFixed(0)} KB';
+}
+
+// ───────────── تفاصيل تشغيل ─────────────
+class RunDetailScreen extends StatefulWidget {
+  final Map<String, dynamic> run;
+  const RunDetailScreen({super.key, required this.run});
+  @override
+  State<RunDetailScreen> createState() => _RunDetailScreenState();
+}
+
+class _RunDetailScreenState extends State<RunDetailScreen> {
+  late Map<String, dynamic> run = widget.run;
+  List<Map<String, dynamic>> jobs = [];
+  final Map<int, List<Map<String, String>>> errors = {};
+  List<Map<String, dynamic>> arts = [];
+  bool loading = true;
+  String? err;
+  Timer? _timer;
+
+  int get id => run['id'] as int;
+  bool get running => run['status'] != 'completed';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _timer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (running) _load(silent: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() => loading = true);
+    try {
+      run = await ActionsApi.run(id);
+      jobs = await ActionsApi.jobs(id);
+      for (final j in jobs) {
+        if (j['status'] == 'completed' && !errors.containsKey(j['id'])) {
+          try {
+            errors[j['id'] as int] = await ActionsApi.annotations(j['id'] as int);
+          } catch (_) {
+            errors[j['id'] as int] = [];
+          }
+        }
+      }
+      if (!running) arts = await ActionsApi.artifacts(id);
+      err = null;
+    } catch (e) {
+      err = '$e';
+    }
+    if (mounted) setState(() => loading = false);
+  }
+
+  Future<void> _act(Future<void> Function() f, String ok) async {
+    try {
+      await f();
+      if (mounted) toast(context, ok);
+      await Future.delayed(const Duration(seconds: 2));
+      _load(silent: true);
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  IconData _icon(dynamic status, dynamic concl) {
+    if (status != 'completed') return Icons.autorenew;
+    switch ('$concl') {
+      case 'success':
+        return Icons.check_circle;
+      case 'skipped':
+        return Icons.remove_circle_outline;
+      case 'cancelled':
+        return Icons.cancel;
+    }
+    return Icons.error;
+  }
+
+  Color _color(dynamic status, dynamic concl) {
+    if (status != 'completed') return Pal.purple;
+    switch ('$concl') {
+      case 'success':
+        return Pal.ok;
+      case 'skipped':
+      case 'cancelled':
+        return Colors.grey;
+    }
+    return Pal.bad;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('${run['name']} #${run['run_number']}'), actions: [
+        IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+      ]),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(padding: const EdgeInsets.all(14), children: [
+              if (err != null) Text(err!, style: const TextStyle(color: Pal.bad)),
+              Text((run['display_title'] ?? '').toString(), style: const TextStyle(fontSize: 15)),
+              const SizedBox(height: 4),
+              Text(_ago(run['created_at']), style: const TextStyle(color: Colors.white60)),
+              const SizedBox(height: 12),
+              Wrap(spacing: 8, runSpacing: 6, children: [
+                OutlinedButton.icon(
+                  onPressed: () => launchUrl(Uri.parse('${run['html_url']}'), mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('فتح في GitHub'),
+                ),
+                if (running)
+                  OutlinedButton.icon(
+                      onPressed: () => _act(() => ActionsApi.cancel(id), 'طُلب الإلغاء'),
+                      icon: const Icon(Icons.stop_circle),
+                      label: const Text('إلغاء'))
+                else ...[
+                  if (run['conclusion'] == 'failure')
+                    OutlinedButton.icon(
+                        onPressed: () => _act(() => ActionsApi.rerunFailed(id), 'أُعيد تشغيل الفاشل'),
+                        icon: const Icon(Icons.replay),
+                        label: const Text('إعادة الفاشل')),
+                  OutlinedButton.icon(
+                      onPressed: () => _act(() => ActionsApi.rerun(id), 'أُعيد التشغيل'),
+                      icon: const Icon(Icons.restart_alt),
+                      label: const Text('إعادة الكل')),
+                ],
+              ]),
+              const SizedBox(height: 16),
+              if (arts.isNotEmpty) ...[
+                const Text('الملفات الناتجة', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Pal.lime)),
+                for (final a in arts)
+                  Card(
+                    color: Pal.surface,
+                    shape: Pal.cardShape(Pal.ok),
+                    child: ListTile(
+                      leading: const Icon(Icons.android, color: Pal.ok),
+                      title: Text('${a['name']}'),
+                      subtitle: Text(a['expired'] == true ? 'منتهية الصلاحية' : 'الحجم المضغوط: ${_size(a['size_in_bytes'])}'),
+                    ),
+                  ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6),
+                  child: Text('للتحميل: اضغط «فتح في GitHub» ثم Artifacts أسفل الصفحة.',
+                      style: TextStyle(fontSize: 12, color: Colors.white60)),
+                ),
+                const SizedBox(height: 10),
+              ],
+              const Text('المراحل', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Pal.lime)),
+              for (final j in jobs) _job(j),
+            ]),
+    );
+  }
+
+  Widget _note(Map<String, String> a) {
+    final lvl = a['level'];
+    final color = lvl == 'failure' ? Pal.bad : (lvl == 'warning' ? Pal.warn : Pal.ok);
+    final title = a['title'] ?? '';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        border: Border.all(color: color.withOpacity(0.6)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (title.isNotEmpty)
+          Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+        if (title.isNotEmpty) const SizedBox(height: 4),
+        SelectableText(a['message'] ?? '', style: const TextStyle(fontSize: 12.5, height: 1.45)),
+      ]),
+    );
+  }
+
+  Widget _job(Map<String, dynamic> j) {
+    final steps = (j['steps'] is List) ? List<Map<String, dynamic>>.from((j['steps'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e))) : <Map<String, dynamic>>[];
+    final c = _color(j['status'], j['conclusion']);
+    final errs = errors[j['id']] ?? [];
+    return Card(
+      color: Pal.surface,
+      shape: Pal.cardShape(c),
+      margin: const EdgeInsets.only(top: 8),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        leading: Icon(_icon(j['status'], j['conclusion']), color: c),
+        title: Text('${j['name']}'),
+        children: [
+          for (final s in steps)
+            ListTile(
+              dense: true,
+              leading: Icon(_icon(s['status'], s['conclusion']), size: 18, color: _color(s['status'], s['conclusion'])),
+              title: Text('${s['name']}'),
+            ),
+          for (final a in errs) _note(a),
+        ],
+      ),
+    );
+  }
+}
