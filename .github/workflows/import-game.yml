@@ -1,0 +1,161 @@
+name: Import game
+
+# استيراد لعبة من GitHub: فحص الرخصة ← جلب/بناء ← تنظيف ← اختبار بمتصفح ← نشر ← تسجيل.
+# يُشغَّل يدوياً فقط: Actions ← Import game ← Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: "رابط مستودع اللعبة على GitHub"
+        required: true
+      orientation:
+        description: "اتجاه الشاشة"
+        type: choice
+        default: portrait
+        options: [portrait, landscape, both]
+      auto_publish:
+        description: "نشر للاعبين مباشرة إذا نجح كل شيء؟ (no = تذهب للمراجعة)"
+        type: choice
+        default: "no"
+        options: ["no", "yes"]
+      prune:
+        description: "تقليل الملفات: smart (حذف ذكي مع تحقق) / junk (ملفات المطوّر فقط) / off"
+        type: choice
+        default: smart
+        options: [smart, junk, "off"]
+      media:
+        description: "تحسين الوسائط: صور→WebP، صوت→Opus، فيديو، خطوط→WOFF2 (safe = مع تحقق وتراجع تلقائي)"
+        type: choice
+        default: safe
+        options: [safe, "off"]
+      ai_test:
+        description: "اختبار بالذكاء الاصطناعي (يلزم وضع المفتاح في أسرار GitHub من تطبيق المتحكم)"
+        type: choice
+        default: "no"
+        options: ["no", "yes"]
+      ai_steps:
+        description: "عدد خطوات الذكاء الاصطناعي (3-60)"
+        required: false
+        default: "20"
+      tags:
+        description: "التصنيفات مفصولة بفاصلة (اختياري)"
+        required: false
+      title_ar:
+        description: "الاسم بالعربية (اختياري)"
+        required: false
+      subdir:
+        description: "مجلد الويب داخل المستودع إن لم يُكتشف (اختياري)"
+        required: false
+      build_cmd:
+        description: "أمر بناء مخصص بدل npm run build (اختياري)"
+        required: false
+
+concurrency:
+  group: import-game
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    # لا أسرار هنا عمداً: هذا الجزء يبني كوداً من طرف ثالث
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install headless browser
+        run: |
+          pip install playwright pillow fonttools brotli
+          python -m playwright install --with-deps chromium
+          sudo apt-get install -y ffmpeg || true
+      - name: Fetch, build, sanitize, test
+        env:
+          INPUT_REPO_URL: ${{ inputs.repo_url }}
+          INPUT_ORIENTATION: ${{ inputs.orientation }}
+          INPUT_AUTO_PUBLISH: ${{ inputs.auto_publish }}
+          INPUT_PRUNE: ${{ inputs.prune }}
+          INPUT_MEDIA: ${{ inputs.media }}
+          INPUT_TAGS: ${{ inputs.tags }}
+          INPUT_TITLE_AR: ${{ inputs.title_ar }}
+          INPUT_SUBDIR: ${{ inputs.subdir }}
+          INPUT_BUILD_CMD: ${{ inputs.build_cmd }}
+          GH_API_TOKEN: ${{ github.token }}
+          WORK_DIR: ${{ github.workspace }}/work
+        run: python3 tools/import_game/prepare.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: game-pkg
+          path: work/out
+          if-no-files-found: ignore
+
+  ai_test:
+    # هذه المرحلة تحمل مفتاح الذكاء الاصطناعي، لكنها فقط تشغّل اللعبة في متصفح معزول وتأخذ لقطات
+    needs: prepare
+    if: ${{ inputs.ai_test == 'yes' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: game-pkg
+          path: pkg
+      - name: Install headless browser
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: AI plays the game
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_ENDPOINT: ${{ secrets.AI_ENDPOINT }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          AI_STEPS: ${{ inputs.ai_steps }}
+          PKG_DIR: ${{ github.workspace }}/pkg
+          AI_OUT: ${{ github.workspace }}/ai_out
+        run: python3 tools/import_game/ai_test.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: game-ai
+          path: ai_out
+          if-no-files-found: ignore
+
+  publish:
+    needs: [prepare, ai_test]
+    if: ${{ always() && needs.prepare.result == 'success' && (needs.ai_test.result == 'success' || needs.ai_test.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: game-pkg
+          path: pkg
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: game-ai
+          path: ai
+      - name: Publish and register
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          HOST_REPO: ${{ vars.HOST_REPO }}
+          HOST_BRANCH: ${{ vars.HOST_BRANCH }}
+          HOST_BASE_URL: ${{ vars.HOST_BASE_URL }}
+          PLAY_URL_TEMPLATE: ${{ vars.PLAY_URL_TEMPLATE }}
+          DATA_REPO: ${{ vars.DATA_REPO }}
+          DATA_BRANCH: ${{ vars.DATA_BRANCH }}
+          PKG_DIR: ${{ github.workspace }}/pkg
+          AI_DIR: ${{ github.workspace }}/ai
+        run: python3 tools/import_game/publish.py
