@@ -1,6 +1,0 @@
-CREATE TABLE IF NOT EXISTS plays (
-  slug TEXT NOT NULL,
-  day  TEXT NOT NULL,
-  n    INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (slug, day)
-);
