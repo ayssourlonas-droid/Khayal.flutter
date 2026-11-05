@@ -21,8 +21,8 @@ const featuredFile = 'data_games_featured.json';
 const pendingFile = 'data_games_pending.json';
 const versionFile = 'version.json';
 
-const defaultOwner = 'ayssersalhi-a11y';
-const defaultRepo = 'FlowData_Core';
+const defaultOwner = 'ayssourlonas-droid';
+const defaultRepo = 'khayal-control';
 const defaultBranch = 'main';
 
 /// نفس قواعد GameLibrary في تطبيق اللاعبين (+ صورة الغلاف إلزامية قبل الرفع).

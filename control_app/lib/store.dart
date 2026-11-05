@@ -16,7 +16,7 @@ class Store {
   static String get ghBranch => _s('gh_branch', defaultBranch);
   // مستودع المشاريع الذي فيه workflows (Actions)
   static String get acOwner => _s('ac_owner', ghOwner);
-  static String get acRepo => _s('ac_repo', 'Khayal.flutter');
+  static String get acRepo => _s('ac_repo', defaultRepo);
   static String get acBranch => _s('ac_branch', 'main');
   static String get statsUrl => _s('stats_url');
   static String get statsToken => _s('stats_token');
