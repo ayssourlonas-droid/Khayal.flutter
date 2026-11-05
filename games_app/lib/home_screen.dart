@@ -413,17 +413,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             listenable: AdsManager.instance,
             builder: (_, __) {
               final b = AdsManager.instance.banner;
-              if (b == null) return const SizedBox.shrink();
+              // الوضع الغامر يخفي شريط الحالة فيمتد المحتوى تحت كاميرا الشاشة؛
+              // نترك مساحة سوداء بارتفاع الحافة العلوية (الكاميرا/الشق) فوق البانر.
+              final topInset = MediaQuery.of(context).viewPadding.top;
               return Container(
                 color: Colors.black,
                 width: double.infinity,
-                height: b.size.height.toDouble(),
+                padding: EdgeInsets.only(top: topInset),
                 alignment: Alignment.center,
-                child: SizedBox(
-                  width: b.size.width.toDouble(),
-                  height: b.size.height.toDouble(),
-                  child: AdWidget(ad: b),
-                ),
+                child: b == null
+                    ? const SizedBox.shrink()
+                    : SizedBox(
+                        width: b.size.width.toDouble(),
+                        height: b.size.height.toDouble(),
+                        child: AdWidget(ad: b),
+                      ),
               );
             },
           ),
