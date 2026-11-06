@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'actions_api.dart';
 import 'cloudinary.dart';
 import 'consts.dart';
 import 'github.dart';
@@ -252,20 +253,23 @@ class _GameFormScreenState extends State<GameFormScreen> {
     if (mounted) setState(() => _busy = false);
   }
 
+  /// حذف جذري: يُشغَّل workflow باسم delete-game.yml فيمسح السجلات والمجلد وفهرس الاستيراد وصفحة الحقوق
+  /// في دفعة واحدة، فتصبح اللعبة كأنها لم تُستورد.
   Future<void> _delete() async {
     final n = titleAr.text;
-    if (!await confirm(context, 'حذف اللعبة', 'حذف "$n" نهائياً من القائمتين؟', ok: 'حذف')) return;
+    if (!await confirm(
+        context,
+        'حذف اللعبة من جذورها',
+        'سيُحذف "$n" نهائياً: من القوائم ومن GitHub وCloudflare (كل ملفاتها)، ويمكن استيرادها من جديد لاحقاً فقط. لا تراجع عن هذا.',
+        ok: 'احذف نهائياً')) return;
     setState(() => _busy = true);
     try {
-      for (final file in [gamesFile, featuredFile, pendingFile]) {
-        final g = await Github.getJson(file);
-        final list = Github.asList(g.data);
-        final before = list.length;
-        list.removeWhere((e) => '${e['id']}' == id.text.trim());
-        if (list.length != before) await Github.putJson(file, list, sha: g.sha, message: 'delete ${id.text}');
-      }
+      await ActionsApi.dispatch('delete-game.yml', {
+        'game_id': id.text.trim(),
+        'play_url': play.text.trim(),
+      });
       if (!mounted) return;
-      toast(context, 'تم الحذف');
+      toast(context, 'بدأ الحذف الجذري؛ يكتمل خلال دقيقة تقريباً (تابعه في GitHub ← Actions ← Delete game)');
       Navigator.pop(context);
     } catch (e) {
       if (mounted) toast(context, '$e', error: true);
