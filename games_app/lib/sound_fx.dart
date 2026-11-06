@@ -43,10 +43,15 @@ class SoundFx {
   }
 
   /// يشغّل المؤثر من بدايته؛ أي خطأ يُتجاهل حتى لا يعطّل الواجهة.
-  void play(Sfx s) {
+  /// نوقف المشغّل أولاً: في الوضع منخفض الكمون قد لا يُعاد تشغيل الصوت بعد انتهائه
+  /// إن لم يُوقَف صراحةً، فكان الصوت يُسمع مرة واحدة فقط.
+  Future<void> play(Sfx s) async {
     if (!enabled.value) return;
     final pl = _players[s];
     if (pl == null) return;
-    pl.play(AssetSource('sfx/${s.name}.ogg')).catchError((_) {});
+    try {
+      await pl.stop();
+      await pl.play(AssetSource('sfx/${s.name}.ogg'));
+    } catch (_) {}
   }
 }
