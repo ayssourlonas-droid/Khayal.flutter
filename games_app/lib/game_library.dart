@@ -1,7 +1,6 @@
-import 'config.dart';
-
-/// يقابل GameLibrary.gd — بوابة التحقق القانوني.
-/// لا تظهر لعبة إلا إذا كان لها: رابط https + رخصة مسموحة + مطوّر + رابط مصدر.
+/// يقابل GameLibrary.gd — فحص سلامة بيانات اللعبة.
+/// فحص الرخصة يتم في تطبيق «متحكم» قبل الاعتماد، فلا يكرّره هذا التطبيق.
+/// لا تظهر لعبة إلا إذا كان لها: رابط https + نوع مدعوم + مطوّر + رابط مصدر.
 class GameLibrary {
   GameLibrary._();
 
@@ -21,10 +20,6 @@ class GameLibrary {
     final playUrl = (d['play_url'] ?? '').toString().trim();
     if (!playUrl.startsWith('https://')) {
       return 'رابط التشغيل مفقود أو ليس https';
-    }
-    final lic = (d['license'] ?? '').toString().trim();
-    if (!Config.allowedLicenses.contains(lic)) {
-      return "رخصة غير مسموحة: '$lic'";
     }
     if ((d['developer'] ?? '').toString().trim().isEmpty) {
       return 'اسم المطوّر مفقود';
