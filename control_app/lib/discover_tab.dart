@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'actions_api.dart';
@@ -8,7 +7,7 @@ import 'theme.dart';
 import 'ui.dart';
 
 /// اكتشاف ألعاب ويب على GitHub برخص مسموحة، ثم استيراد المحدد منها واحدة بعد أخرى.
-/// الاستيراد المتتابع يعمل ما دامت هذه الشاشة مفتوحة (workflow واحد في الوقت الواحد).
+/// الطابور يعمل على خادم GitHub (workflow باسم import-queue.yml)، فلا يتوقف إن أُغلق التطبيق.
 class DiscoverTab extends StatefulWidget {
   final VoidCallback onStarted;
   const DiscoverTab({super.key, required this.onStarted});
@@ -20,7 +19,7 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
   @override
   bool get wantKeepAlive => true;
 
-  static const _wf = 'import-game.yml';
+  static const _wf = 'import-queue.yml';
   static const topics = ['html5-game', 'web-game', 'javascript-game', 'phaser', 'canvas-game', 'puzzle-game'];
 
   final nameCtl = TextEditingController();
@@ -45,7 +44,6 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
 
   // الطابور
   bool _running = false;
-  bool _stop = false;
   final Map<String, String> _state = {}; // fullName -> نص الحالة
   final List<String> _order = [];
 
@@ -102,76 +100,47 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
 
   bool _isKnown(FoundRepo r) => _known.contains(DiscoverApi.norm(r.url));
 
+  /// يرسل القائمة كاملة مرة واحدة إلى طابور GitHub؛ بعدها يمكن إغلاق التطبيق.
   Future<void> _startQueue() async {
     final list = _results.where((r) => _selected.contains(r.fullName) && !_isKnown(r)).toList();
     if (list.isEmpty) return;
     setState(() {
       _running = true;
-      _stop = false;
       _order
         ..clear()
         ..addAll(list.map((e) => e.fullName));
       for (final r in list) {
-        _state[r.fullName] = 'بانتظار الدور';
+        _state[r.fullName] = 'يُرسل إلى الطابور...';
       }
     });
-    for (final r in list) {
-      if (_stop || !mounted) break;
-      await _runOne(r);
+    try {
+      await ActionsApi.dispatch(_wf, {
+        'urls': list.map((e) => e.url).join('\n'),
+        'orientation': orientation,
+        'prune': 'smart',
+        'media': media ? 'safe' : 'off',
+        'ai_test': aiTest ? 'yes' : 'no',
+      });
+      for (final r in list) {
+        _state[r.fullName] = 'في طابور GitHub (يكمل حتى لو أُغلق التطبيق)';
+      }
+      widget.onStarted();
+      if (mounted) {
+        toast(context, 'أُرسلت ${list.length} لعبة إلى الطابور؛ يمكنك إغلاق التطبيق وتتبّع النتائج في تبويب السجل');
+      }
+    } catch (e) {
+      for (final r in list) {
+        _state[r.fullName] = 'تعذّر الإرسال: $e';
+      }
+      if (mounted) toast(context, '$e', error: true);
     }
-    if (mounted) {
-      setState(() => _running = false);
-      toast(context, _stop ? 'أُوقف الطابور' : 'انتهى الطابور ✓');
-    }
+    if (mounted) setState(() => _running = false);
   }
 
   void _set(String k, String v) {
     if (mounted) setState(() => _state[k] = v);
   }
 
-  Future<void> _runOne(FoundRepo r) async {
-    try {
-      _set(r.fullName, 'يرسل الطلب...');
-      final before = (await ActionsApi.runs(_wf, n: 5)).map((e) => e['id']).toSet();
-      await ActionsApi.dispatch(_wf, {
-        'repo_url': r.url,
-        'orientation': orientation,
-        'auto_publish': 'no', // المكتشف دائماً يذهب للمراجعة
-        'prune': 'smart',
-        'media': media ? 'safe' : 'off',
-        'ai_test': aiTest ? 'yes' : 'no',
-      });
-      int? id;
-      for (var i = 0; i < 25 && id == null && !_stop; i++) {
-        await Future.delayed(const Duration(seconds: 3));
-        final now = await ActionsApi.runs(_wf, n: 5);
-        for (final e in now) {
-          if (!before.contains(e['id'])) {
-            id = e['id'] as int;
-            break;
-          }
-        }
-      }
-      if (id == null) {
-        _set(r.fullName, 'لم يظهر التشغيل (راجع السجل)');
-        return;
-      }
-      widget.onStarted();
-      _set(r.fullName, 'يعمل...');
-      for (var i = 0; i < 280 && !_stop; i++) {
-        await Future.delayed(const Duration(seconds: 10));
-        final run = await ActionsApi.run(id);
-        if (run['status'] == 'completed') {
-          final c = '${run['conclusion']}';
-          _set(r.fullName, c == 'success' ? 'نجح ✓ (للمراجعة)' : 'فشل ✗ ($c)');
-          return;
-        }
-      }
-      _set(r.fullName, _stop ? 'أُوقف' : 'انتهت مهلة الانتظار (راجع السجل)');
-    } catch (e) {
-      _set(r.fullName, 'خطأ: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -238,11 +207,9 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
           icon: const Icon(Icons.playlist_play),
           label: Padding(padding: const EdgeInsets.all(12), child: Text('استورد المحدد (${_selected.length}) واحدة بعد أخرى')),
         ),
-        if (_running)
-          TextButton(onPressed: () => setState(() => _stop = true), child: const Text('إيقاف الطابور بعد اللعبة الحالية')),
         const Padding(
           padding: EdgeInsets.only(top: 6),
-          child: Text('أبقِ هذه الشاشة مفتوحة أثناء الطابور؛ كل لعبة تنتظر انتهاء السابقة.',
+          child: Text('يُرسَل الطابور إلى GitHub فيعمل وحده، ويمكنك إغلاق التطبيق؛ كل لعبة تنتظر انتهاء السابقة.',
               style: TextStyle(fontSize: 12, color: Colors.white60)),
         ),
       ],
