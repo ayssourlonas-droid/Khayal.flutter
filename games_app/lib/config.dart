@@ -31,15 +31,15 @@ class Config {
   static const testBannerId = 'ca-app-pub-3940256099942544/6300978111';
   static const testRewardedId = 'ca-app-pub-3940256099942544/5224354917';
   static const testInterstitialId = 'ca-app-pub-3940256099942544/1033173712';
-  static const realBannerId = '';
-  static const realInterstitialId = '';
+  static const realBannerId = 'ca-app-pub-2993097916011860/9390159374';
+  static const realInterstitialId = 'ca-app-pub-2993097916011860/6997985663';
   /// إعلان واحد عند الدخول إلى لعبة (بعد خصم النقطة).
   static const interstitialOnEnter = true;
   /// أقل فاصل بين إعلانين بيني (ثوانٍ) كي لا يزعج اللاعب.
   static const interstitialMinGapSeconds = 90;
   /// اجعلها true إن كان التطبيق موجهاً للأطفال (قيود Families Policy).
   static const childDirected = false;
-  static const realRewardedId = '';
+  static const realRewardedId = 'ca-app-pub-2993097916011860/1023750041';
   static const rewardPoints = 1;
   static const retryBaseSeconds = 15.0;
   static const retryMaxSeconds = 120.0;
