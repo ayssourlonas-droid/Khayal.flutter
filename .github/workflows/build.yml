@@ -73,10 +73,20 @@ jobs:
       - run: flutter pub get
       - name: Generate launcher icons
         run: dart run flutter_launcher_icons
+      - name: Compute version
+        id: ver
+        run: |
+          # الرقم الأول والثاني من pubspec.yaml (تغيّرهما بيدك)، والثالث ورقم البناء = رقم تشغيل هذا الـ workflow (يرتفع تلقائياً)
+          base=$(grep -m1 '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//; s/+.*//')
+          mm=$(echo "$base" | cut -d. -f1,2)
+          name="$mm.${{ github.run_number }}"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "### إصدار خيال المبني: $name (رقم البناء ${{ github.run_number }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "VERSION = $name"
       - name: Build APK
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --build-name=${{ steps.ver.outputs.name }} --build-number=${{ github.run_number }}
       - name: Build AAB
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --build-name=${{ steps.ver.outputs.name }} --build-number=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: gamehub-apk
