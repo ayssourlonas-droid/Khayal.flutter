@@ -6,6 +6,7 @@ import 'ads_manager.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'app_state.dart';
@@ -40,6 +41,12 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
   late final Map<String, dynamic> main = _m(game['main_scene']);
   late final Map<String, dynamic> details = _m(game['details_scene']);
 
+  // أبعاد الكرت (غيّرها هنا إن أردت تجربة حجم آخر)
+  static const double _posterLeft = 50;
+  static const double _posterTop = 200;
+  static const double _posterW = 450;
+  static const double _posterH = 700;
+
   late final Ticker _ticker;
   final ValueNotifier<double> _t = ValueNotifier(0);
 
@@ -50,6 +57,12 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
   Uint8List? _bgBytes;
   Uint8List? _posterBytes;
 
+  // إعجاب / مفضلة / تقييمي الشخصي: تُحفظ على هذا الجهاز فقط (لا خادم بعد)
+  bool _liked = false;
+  bool _fav = false;
+  int _myRate = 0;
+  String get _gid => (game['id'] ?? game['title'] ?? '').toString();
+
   late final List<Map<String, dynamic>> _special;
   late final List<Map<String, dynamic>> _cast;
   late final String _description;
@@ -59,6 +72,7 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
     super.initState();
     _ticker = createTicker((d) => _t.value = d.inMicroseconds / 1e6)..start();
 
+    _loadFlags();
     _posterBytes = AppState.currentPoster;
     _bgBytes = AppState.currentBackground;
     final posterUrl = (main['poster_url'] ?? '').toString();
@@ -100,6 +114,84 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
       _cast.isNotEmpty,
     ];
     if (!_active[1]) _selected = _active.indexOf(true).clamp(0, 2).toInt();
+  }
+
+  Future<void> _loadFlags() async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _liked = sp.getBool('like_$_gid') ?? false;
+        _fav = sp.getBool('fav_$_gid') ?? false;
+        _myRate = sp.getInt('rate_$_gid') ?? 0;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveFlag(String key, Object? v) async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      if (v == null || v == false || v == 0) {
+        await sp.remove(key);
+      } else if (v is bool) {
+        await sp.setBool(key, v);
+      } else if (v is int) {
+        await sp.setInt(key, v);
+      }
+    } catch (_) {}
+  }
+
+  void _toggleLike() {
+    SoundFx.instance.play(Sfx.tap);
+    setState(() => _liked = !_liked);
+    _saveFlag('like_$_gid', _liked);
+  }
+
+  void _toggleFav() {
+    SoundFx.instance.play(Sfx.tap);
+    setState(() => _fav = !_fav);
+    _saveFlag('fav_$_gid', _fav);
+  }
+
+  Future<void> _rate() async {
+    SoundFx.instance.play(Sfx.open);
+    final r = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: const Color(0xFF14091F),
+      builder: (c) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('قيّم هذه اللعبة',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                textDirection: TextDirection.ltr,
+                children: [
+                  for (var i = 1; i <= 5; i++)
+                    IconButton(
+                      iconSize: 44,
+                      onPressed: () => Navigator.pop(c, i),
+                      icon: Icon(i <= _myRate ? Icons.star_rounded : Icons.star_border_rounded,
+                          color: const Color(0xFFFFC83D)),
+                    ),
+                ],
+              ),
+              if (_myRate > 0)
+                TextButton(
+                    onPressed: () => Navigator.pop(c, 0),
+                    child: const Text('إزالة تقييمي', style: TextStyle(color: Colors.white54))),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (r == null || !mounted) return;
+    setState(() => _myRate = r);
+    _saveFlag('rate_$_gid', r);
   }
 
   @override
@@ -165,33 +257,40 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
             ),
           ),
 
-          // البوستر + ظله الكبير
+          // البوستر كـ«كرت عائم»: ظل أسود ضبابي يظهر تحته ومن جانبه الأيسر
           Positioned(
-            left: 50,
-            top: 200,
-            width: 500,
-            height: 700,
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 0,
-                  bottom: 0,
-                  width: 400,
-                  height: 600,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.706), blurRadius: 100)],
-                    ),
+            left: _posterLeft,
+            top: _posterTop,
+            width: _posterW,
+            height: _posterH,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.9),
+                    blurRadius: 90,
+                    spreadRadius: 4,
+                    offset: const Offset(-14, 34),
                   ),
-                ),
-                Positioned.fill(
-                  child: _posterBytes != null
-                      ? Image.memory(_posterBytes!, fit: BoxFit.cover, gaplessPlayback: true)
-                      : const SizedBox.shrink(),
-                ),
-              ],
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: _posterBytes != null
+                    ? Image.memory(_posterBytes!,
+                        width: _posterW, height: _posterH, fit: BoxFit.cover, gaplessPlayback: true)
+                    : const ColoredBox(color: Color(0xFF14091F)),
+              ),
             ),
+          ),
+
+          // شريط ظاهر دائماً تحت الكرت: إعجاب / تقييم / مفضلة
+          Positioned(
+            left: _posterLeft,
+            top: _posterTop + _posterH + 40,
+            width: _posterW,
+            child: _actionBar(),
           ),
 
           // العنوان + الوسوم + السنة
@@ -202,13 +301,14 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
             child: Column(
               children: [
                 SizedBox(
-                  height: 70,
+                  height: 80,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: OutlinedText(title,
-                        size: 45, color: AppColors.titleRed, outlineColor: const Color.fromRGBO(15, 0, 15, 0.92), outline: 15),
+                        size: 45, color: AppColors.titleRed, outlineColor: const Color.fromRGBO(15, 0, 15, 1), outline: 20),
                   ),
                 ),
+                const SizedBox(height: 14),
                 DecoratedBox(
                   decoration: BoxDecoration(
                     boxShadow: [BoxShadow(color: const Color.fromRGBO(51, 6, 46, 0.745), blurRadius: 20)],
@@ -218,9 +318,8 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
                     child: Column(
                       children: [
                         Container(
-                          height: 100,
+                          height: 90,
                           alignment: Alignment.center,
-                          color: const Color.fromRGBO(0, 0, 0, 0.988),
                           child: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: OutlinedText(primary, size: 45, outline: 10, outlineColor: AppColors.purpleOutline)),
@@ -235,13 +334,14 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
                     ),
                   ),
                 ),
+                const SizedBox(height: 14),
                 SizedBox(
                   height: 100,
                   child: Row(
                     children: [
                       Expanded(
                         child: OutlinedText(year,
-                            size: 45, color: AppColors.titleRed, outlineColor: const Color.fromRGBO(15, 0, 15, 0.92), outline: 15),
+                            size: 45, outline: 10, outlineColor: AppColors.purpleOutline),
                       ),
                       SizedBox(
                         width: 300,
@@ -287,27 +387,13 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
             child: _carousel(),
           ),
 
-          // مناطق التنقل (شفافة كما في الأصل): طاقم / وصف / معرض
+          // شريط التبديل الظاهر دائماً: معرض / وصف / طاقم
           Positioned(
-            top: h - 690,
-            left: (1080 - 470) / 2,
-            width: 470,
+            top: h - 800,
+            left: 0,
+            right: 0,
             height: 100,
-            child: Row(
-              textDirection: TextDirection.ltr,
-              children: [
-                for (final entry in const [(0, 'extra'), (1, 'desc'), (2, 'cast')]) ...[
-                  if (_active[entry.$1])
-                    GlowButton(
-                      onTap: () => setState(() => _selected = entry.$1),
-                      child: const SizedBox(width: 150, height: 100),
-                    )
-                  else
-                    const SizedBox(width: 150, height: 100),
-                  const SizedBox(width: 10),
-                ],
-              ],
-            ),
+            child: Center(child: _tabsBar()),
           ),
 
           // رجوع (أعلى اليمين) و تشغيل
@@ -335,6 +421,107 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
     );
   }
 
+
+  // ───── الشريط الدائم تحت الكرت ─────
+  Widget _actionBar() {
+    Widget btn(IconData icon, String label, bool on, Color onColor, VoidCallback tap) => GlowButton(
+          sound: null, // كل زر يشغّل صوته
+          onTap: tap,
+          child: SizedBox(
+            width: 130,
+            height: 90,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 46, color: on ? onColor : Colors.white70),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 22,
+                        color: on ? Colors.white : Colors.white60,
+                        decoration: TextDecoration.none)),
+              ],
+            ),
+          ),
+        );
+    return Container(
+      height: 110,
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.88),
+        borderRadius: BorderRadius.circular(55),
+        border: Border.all(color: AppColors.popupBorder, width: 4),
+        boxShadow: const [BoxShadow(color: Color.fromRGBO(74, 2, 60, 0.745), blurRadius: 20)],
+      ),
+      child: Row(
+        textDirection: TextDirection.ltr,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          btn(_liked ? Icons.favorite_rounded : Icons.favorite_border_rounded, 'إعجاب', _liked,
+              const Color(0xFFFF4D8D), _toggleLike),
+          btn(_myRate > 0 ? Icons.star_rounded : Icons.star_border_rounded,
+              _myRate > 0 ? 'تقييمي $_myRate' : 'تقييم', _myRate > 0, const Color(0xFFFFC83D), _rate),
+          btn(_fav ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, 'مفضلة', _fav,
+              const Color(0xFF7CC4FF), _toggleFav),
+        ],
+      ),
+    );
+  }
+
+  // ───── شريط التبديل السفلي ─────
+  static const _tabs = [
+    (0, Icons.photo_library_rounded, 'معرض'),
+    (1, Icons.notes_rounded, 'وصف'),
+    (2, Icons.groups_rounded, 'طاقم'),
+  ];
+
+  Widget _tabsBar() {
+    final visible = [for (final t in _tabs) if (_active[t.$1]) t];
+    if (visible.isEmpty) return const SizedBox.shrink();
+    final sel = _active[_selected] ? _selected : visible.first.$1;
+    return Container(
+      height: 100,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.88),
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(color: AppColors.popupBorder, width: 4),
+        boxShadow: const [BoxShadow(color: Color.fromRGBO(74, 2, 60, 0.745), blurRadius: 20)],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        textDirection: TextDirection.ltr,
+        children: [
+          for (final t in visible)
+            GlowButton(
+              onTap: () => setState(() => _selected = t.$1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 150,
+                height: 80,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: sel == t.$1 ? AppColors.popupBorder.withOpacity(0.35) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(40),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(t.$2, size: 40, color: sel == t.$1 ? Colors.white : Colors.white60),
+                    Text(
+                      t.$3,
+                      style: TextStyle(
+                        fontSize: 24,
+                        color: sel == t.$1 ? Colors.white : Colors.white60,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   // ───── شريط الأدوات (ينزلق من الزر أعلى اليسار) ─────
   static const _reasons = [
