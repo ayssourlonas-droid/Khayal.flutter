@@ -28,6 +28,14 @@ if perms:
 m = re.sub(r'android:label="[^"]*"', f'android:label="{APP_NAME}"', m, count=1)
 if "usesCleartextTraffic" not in m:
     m = m.replace("<application", '<application\n        android:usesCleartextTraffic="false"', 1)
+if "io.flutter.embedding.android.EnableImpeller" not in m:
+    # عيوب رسم (ألوان مشوّهة لحظية) ظهرت على بعض الأجهزة مع Impeller: نعود إلى محرك Skia المستقر
+    imp = (
+        '        <meta-data\n'
+        '            android:name="io.flutter.embedding.android.EnableImpeller"\n'
+        '            android:value="false"/>\n'
+    )
+    m = re.sub(r"(<application[^>]*>\s*\n)", lambda x: x.group(1) + imp, m, count=1)
 open(mp, "w", encoding="utf-8").write(m)
 
 # ───── build.gradle(.kts) ─────
