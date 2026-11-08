@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'consts.dart';
 import 'github.dart';
+import 'releases_api.dart';
 import 'ui.dart';
 
 /// تبويبان: محرر version.json (يقرؤه تطبيق اللاعبين) + محرر JSON خام لأي ملف.
@@ -45,11 +46,24 @@ class _VersionTabState extends State<_VersionTab> {
   Map<String, dynamic> _all = {};
   String? _sha;
   bool _busy = false;
+  String _approved = '';
+  BuildRelease? _build;
+  String? _buildErr;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  Future<void> _loadBuild() async {
+    try {
+      _build = await Releases.latestBuild();
+      _buildErr = null;
+    } catch (e) {
+      _build = null;
+      _buildErr = '$e';
+    }
   }
 
   Future<void> _load() async {
@@ -61,8 +75,32 @@ class _VersionTabState extends State<_VersionTab> {
       for (final k in keys.keys) {
         c[k]!.text = '${_all[k] ?? ''}';
       }
+      _approved = '${_all['latest_version'] ?? ''}';
       final m = '${_all['update_mode'] ?? 'optional'}';
       mode = (m == 'forced') ? 'forced' : 'optional';
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+    await _loadBuild();
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Future<void> _approve() async {
+    final b = _build;
+    if (b == null) return;
+    final ok = await confirm(
+        context, 'اعتماد ${b.version}', 'سيصل اللاعبين تنبيه بتحديث إلى ${b.version}. متابعة؟',
+        ok: 'اعتماد');
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await Releases.approve(b);
+      c['latest_version']!.text = b.version;
+      c['download_url']!.text = b.apkUrl;
+      _all = {..._all, 'latest_version': b.version, 'download_url': b.apkUrl};
+      _approved = b.version;
+      await _loadBuild();
+      if (mounted) toast(context, 'تم اعتماد ${b.version} ✓');
     } catch (e) {
       if (mounted) toast(context, '$e', error: true);
     }
@@ -79,6 +117,7 @@ class _VersionTabState extends State<_VersionTab> {
       out['update_mode'] = mode;
       final cur = await Github.getJson(versionFile);
       await Github.putJson(versionFile, out, sha: cur.sha ?? _sha, message: 'version ${out['latest_version']}');
+      _approved = '${out['latest_version']}';
       if (mounted) toast(context, 'تم الرفع ✓');
     } catch (e) {
       if (mounted) toast(context, '$e', error: true);
@@ -86,10 +125,41 @@ class _VersionTabState extends State<_VersionTab> {
     if (mounted) setState(() => _busy = false);
   }
 
+  Widget _approvalCard() {
+    final b = _build;
+    final needs = b != null && b.version != _approved;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('المعتمد حالياً: ${_approved.isEmpty ? '—' : _approved}',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          if (_buildErr != null)
+            Text(_buildErr!, style: TextStyle(color: Theme.of(context).colorScheme.error))
+          else if (b == null)
+            const Text('لا يوجد بناء منشور بعد.')
+          else
+            Text('آخر بناء: ${b.version}${b.prerelease ? ' (تجريبي)' : ''}'),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: (_busy || !needs) ? null : _approve,
+              child: Text(b == null ? 'اعتماد' : needs ? 'اعتماد ${b.version}' : 'معتمد ✓'),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(padding: const EdgeInsets.all(14), children: [
       if (_busy) const LinearProgressIndicator(),
+      _approvalCard(),
       for (final e in keys.entries) field(c[e.key]!, e.value),
       DropdownButtonFormField<String>(
         value: mode,
