@@ -6,6 +6,8 @@ import 'ui.dart';
 import 'actions_screen.dart';
 import 'game_form_screen.dart';
 import 'games_list_screen.dart';
+import 'discover_api.dart';
+import 'rejected_screen.dart';
 
 /// مركز الألعاب: كل ما يخص الألعاب في مكان واحد (إضافة، تعديل، مراجعة، استيراد، بحث شامل).
 class GamesHubScreen extends StatefulWidget {
@@ -18,6 +20,7 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
   List<Map<String, dynamic>> _games = [];
   List<Map<String, dynamic>> _featured = [];
   List<Map<String, dynamic>> _pending = [];
+  int _rejected = 0;
   bool _loading = true;
   String _q = '';
 
@@ -33,6 +36,7 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
       _games = Github.asList((await Github.getJson(gamesFile)).data);
       _featured = Github.asList((await Github.getJson(featuredFile)).data);
       _pending = Github.asList((await Github.getJson(pendingFile)).data);
+      _rejected = (await DiscoverApi.rejectedList()).length;
     } catch (e) {
       if (mounted) toast(context, '$e', error: true);
     }
@@ -153,6 +157,9 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
             _action(Icons.rule, 'ألعاب للمراجعة', 'اعتماد أو تعديل أو إعادة استيراد الألعاب المستوردة', Pal.warn,
                 () => _go(const GamesListScreen(initialTab: 2)),
                 badge: _pending.isEmpty ? null : '${_pending.length}'),
+            _action(Icons.block, 'المستودعات المرفوضة', 'يتجاهلها البحث، وتعود إليها بعد تطوير الأدوات', Pal.bad,
+                () => _go(const RejectedScreen()),
+                badge: _rejected == 0 ? null : '$_rejected'),
             _action(Icons.rocket_launch, 'استيراد الألعاب', 'استيراد من GitHub، اكتشاف، وسجل النتائج الملونة',
                 const Color(0xFFFF9800), () => _go(const ActionsScreen())),
           ],

@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'actions_api.dart';
 import 'discover_api.dart';
 import 'name_key.dart';
+import 'rejected_screen.dart';
 import 'theme.dart';
 import 'ui.dart';
 
@@ -35,6 +36,9 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
   String? _err;
   List<FoundRepo> _results = [];
   Set<String> _known = {};
+  Set<String> _rejected = {};
+  bool _showRejected = false;
+  int _rejHidden = 0;
   List<SeenEntry> _seen = [];
   // مفتاح المستودع -> ملاحظة (مكررة/اسم مشابه) ؛ والمخفي من النسخ المشابهة داخل النتائج
   final Map<String, String> _note = {};
@@ -55,6 +59,7 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
     try {
       final known = await DiscoverApi.knownSources();
       final seen = await DiscoverApi.seenEntries();
+      final rejected = await DiscoverApi.rejectedSources();
       final res = await DiscoverApi.search(
           name: nameCtl.text, topic: topic, minStars: minStars, recentOnly: recentOnly, onlyLicense: lic);
       _note.clear();
@@ -63,7 +68,13 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
       // 1) مقارنة بالسجل السابق: اسم + حجم متقارب = مكررة محتملة (تُخفى)، اسم فقط = تنبيه
       final primaries = <String, FoundRepo>{};
       final shown = <FoundRepo>[];
+      var rejHidden = 0;
       for (final r in res) {
+        // مستودع رُفض سابقاً: يُتجاهل (يمكنك إظهاره أو العودة إليه من «قائمة المرفوضة»)
+        if (!_showRejected && rejected.contains(DiscoverApi.norm(r.url))) {
+          rejHidden++;
+          continue;
+        }
         final k = r.key;
         final prev = seen.where((e) => e.key == k).toList();
         if (prev.any((e) => similarSize(e.sizeKb, r.sizeKb))) {
@@ -89,6 +100,8 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
       setState(() {
         _seen = seen;
         _known = known;
+        _rejected = rejected;
+        _rejHidden = rejHidden;
         _results = shown;
         _selected.clear();
       });
@@ -177,6 +190,17 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
         onChanged: (v) => setState(() => recentOnly = v),
         title: const Text('محدّثة خلال آخر سنتين فقط'),
       ),
+      SwitchListTile(
+        value: _showRejected,
+        onChanged: (v) => setState(() => _showRejected = v),
+        title: const Text('إظهار المرفوضة سابقاً في النتائج'),
+        subtitle: const Text('مطفأ: يتجاهلها البحث', style: TextStyle(fontSize: 11)),
+      ),
+      OutlinedButton.icon(
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RejectedScreen())),
+        icon: const Icon(Icons.block),
+        label: const Padding(padding: EdgeInsets.all(8), child: Text('قائمة المستودعات المرفوضة (للعودة إليها لاحقاً)')),
+      ),
       const SizedBox(height: 6),
       FilledButton.icon(
         onPressed: _searching || _running ? null : _search,
@@ -187,7 +211,7 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
       if (_err != null) Padding(padding: const EdgeInsets.all(8), child: Text(_err!, style: const TextStyle(color: Pal.bad))),
       if (_results.isNotEmpty) ...[
         const Divider(height: 28),
-        Text('النتائج (${_results.length}) — أُخفيت ${_hidden.length} نسخة مكررة محتملة', style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text('النتائج (${_results.length}) — أُخفيت ${_hidden.length} نسخة مكررة محتملة${_rejHidden > 0 ? ' و$_rejHidden مرفوضة سابقاً' : ''}', style: const TextStyle(fontWeight: FontWeight.bold)),
         for (final r in _results) _tile(r),
         const Divider(height: 28),
         DropdownButtonFormField<String>(
@@ -228,7 +252,7 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
             : (v) => setState(() => v == true ? _selected.add(r.fullName) : _selected.remove(r.fullName)),
         title: Text('${r.fullName}  ⭐${r.stars}', style: const TextStyle(fontSize: 14)),
         subtitle: Text(
-          '${known ? '✓ مسجّلة سابقاً\n' : ''}${_note[r.fullName] == null ? '' : '⚠ ${_note[r.fullName]}\n'}${(_hiddenCount[r.fullName] ?? 0) > 0 ? '+${_hiddenCount[r.fullName]} نسخ مشابهة مخفية\n' : ''}${r.desc.isEmpty ? '' : '${r.desc}\n'}'
+          '${known ? '✓ مسجّلة سابقاً\n' : ''}${_rejected.contains(DiscoverApi.norm(r.url)) ? '✗ مرفوضة سابقاً\n' : ''}${_note[r.fullName] == null ? '' : '⚠ ${_note[r.fullName]}\n'}${(_hiddenCount[r.fullName] ?? 0) > 0 ? '+${_hiddenCount[r.fullName]} نسخ مشابهة مخفية\n' : ''}${r.desc.isEmpty ? '' : '${r.desc}\n'}'
           '${r.license} • آخر تحديث ${r.pushed}${r.topics.isEmpty ? '' : '\n${r.topics}'}'
           '${st == null ? '' : '\n» $st'}',
           style: const TextStyle(fontSize: 12),

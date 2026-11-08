@@ -58,6 +58,21 @@ class DiscoverApi {
     return s;
   }
 
+  /// ملف المستودعات المرفوضة (يكتبه record_rejection.py بعد كل رفض).
+  static const rejectedFile = 'data_import_rejected.json';
+
+  static Future<List<Map<String, dynamic>>> rejectedList() async {
+    try {
+      final d = await Github.getJson(rejectedFile);
+      return Github.asList(d.data);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<Set<String>> rejectedSources() async =>
+      {for (final e in await rejectedList()) norm('${e['url'] ?? ''}')};
+
   /// روابط المصدر المسجّلة سابقاً (منشورة + مميزة + للمراجعة).
   static Future<Set<String>> knownSources() async {
     final out = <String>{};
