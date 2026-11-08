@@ -116,48 +116,81 @@ class DiscoverApi {
     return out;
   }
 
+  /// تنبيه من آخر بحث (مثلاً توقّف مبكراً بسبب حد GitHub)
+  static String? lastWarning;
+
+  /// يبحث صفحة بعد صفحة (الأعلى نجوماً أولاً) حتى يجمع [wantNew] نتيجة جديدة
+  /// (ليست في [exclude]: المسجّلة والمرفوضة) أو تنتهي النتائج أو يبلغ [maxPages].
+  /// قبل التعديل كانت تُجلب أول 15 فقط لكل رخصة، فتبقى المسجّلة والمرفوضة وحدها.
   static Future<List<FoundRepo>> search({
     String name = '',
     required String topic,
     required int minStars,
     required bool recentOnly,
     String? onlyLicense,
+    Set<String> exclude = const {},
+    int wantNew = 30,
+    int maxPages = 8,
   }) async {
+    lastWarning = null;
+    const perPage = 30;
     final lics = onlyLicense == null ? licenseKeys.keys.toList() : [onlyLicense];
     final found = <String, FoundRepo>{};
+    final done = <String>{}; // رخص انتهت نتائجها
     final since = DateTime.now().subtract(const Duration(days: 730));
     final sinceStr =
         '${since.year}-${since.month.toString().padLeft(2, '0')}-${since.day.toString().padLeft(2, '0')}';
-    for (final lic in lics) {
-      final base = name.trim().isEmpty ? 'topic:$topic' : '${name.trim()} in:name,description';
-      final q = '$base license:${licenseKeys[lic]} stars:>=$minStars archived:false fork:false'
-          '${recentOnly ? ' pushed:>=$sinceStr' : ''}';
-      final uri = Uri.https('api.github.com', '/search/repositories',
-          {'q': q, 'sort': 'stars', 'order': 'desc', 'per_page': '15'});
-      final r = await http.get(uri, headers: _h()).timeout(const Duration(seconds: 30));
-      if (r.statusCode == 403 || r.statusCode == 429) {
-        throw GhException('تجاوزت حد البحث في GitHub. انتظر دقيقة ثم أعد المحاولة (يساعد وجود التوكن).');
+    var newCount = 0;
+    outer:
+    for (var page = 1; page <= maxPages; page++) {
+      for (final lic in lics) {
+        if (done.contains(lic)) continue;
+        final base = name.trim().isEmpty ? 'topic:$topic' : '${name.trim()} in:name,description';
+        final q = '$base license:${licenseKeys[lic]} stars:>=$minStars archived:false fork:false'
+            '${recentOnly ? ' pushed:>=$sinceStr' : ''}';
+        final uri = Uri.https('api.github.com', '/search/repositories',
+            {'q': q, 'sort': 'stars', 'order': 'desc', 'per_page': '$perPage', 'page': '$page'});
+        final r = await http.get(uri, headers: _h()).timeout(const Duration(seconds: 30));
+        if (r.statusCode == 403 || r.statusCode == 429) {
+          if (found.isNotEmpty) {
+            lastWarning = 'توقف البحث مبكراً بسبب حد GitHub، وهذه النتائج حتى الآن. انتظر دقيقة ثم أعد البحث للمزيد.';
+            break outer;
+          }
+          throw GhException('تجاوزت حد البحث في GitHub. انتظر دقيقة ثم أعد المحاولة (يساعد وجود التوكن).');
+        }
+        if (r.statusCode != 200) {
+          if (found.isNotEmpty) {
+            lastWarning = 'توقف البحث مبكراً (GitHub ${r.statusCode}).';
+            break outer;
+          }
+          throw GhException('GitHub ${r.statusCode}');
+        }
+        final j = jsonDecode(utf8.decode(r.bodyBytes));
+        final items = (j is Map && j['items'] is List) ? j['items'] as List : [];
+        if (items.length < perPage || page * perPage >= 1000) done.add(lic);
+        for (final it in items) {
+          if (it is! Map) continue;
+          final full = (it['full_name'] ?? '').toString();
+          if (full.isEmpty) continue;
+          final spdx = it['license'] is Map ? (it['license']['spdx_id'] ?? '').toString() : '';
+          final url = (it['html_url'] ?? 'https://github.com/$full').toString();
+          final isNew = !found.containsKey(full) && !exclude.contains(norm(url));
+          found[full] = FoundRepo(
+            full,
+            url,
+            (it['description'] ?? '').toString(),
+            spdx,
+            (it['stargazers_count'] ?? 0) as int,
+            (it['pushed_at'] ?? '').toString().split('T').first,
+            ((it['topics'] is List) ? (it['topics'] as List).take(4).join(', ') : ''),
+            (it['size'] is int) ? it['size'] as int : 0,
+          );
+          if (isNew) newCount++;
+        }
+        if (newCount >= wantNew) break outer;
+        await Future.delayed(const Duration(milliseconds: 700));
       }
-      if (r.statusCode != 200) throw GhException('GitHub ${r.statusCode}');
-      final j = jsonDecode(utf8.decode(r.bodyBytes));
-      final items = (j is Map && j['items'] is List) ? j['items'] as List : [];
-      for (final it in items) {
-        if (it is! Map) continue;
-        final full = (it['full_name'] ?? '').toString();
-        if (full.isEmpty) continue;
-        final spdx = it['license'] is Map ? (it['license']['spdx_id'] ?? '').toString() : '';
-        found[full] = FoundRepo(
-          full,
-          (it['html_url'] ?? 'https://github.com/$full').toString(),
-          (it['description'] ?? '').toString(),
-          spdx,
-          (it['stargazers_count'] ?? 0) as int,
-          (it['pushed_at'] ?? '').toString().split('T').first,
-          ((it['topics'] is List) ? (it['topics'] as List).take(4).join(', ') : ''),
-          (it['size'] is int) ? it['size'] as int : 0,
-        );
-      }
-      await Future.delayed(const Duration(milliseconds: 400));
+      if (done.length >= lics.length) break;
     }
     final list = found.values.toList()..sort((a, b) => b.stars.compareTo(a.stars));
     return list;

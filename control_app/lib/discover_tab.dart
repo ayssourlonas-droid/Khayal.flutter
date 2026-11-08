@@ -61,7 +61,12 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
       final seen = await DiscoverApi.seenEntries();
       final rejected = await DiscoverApi.rejectedSources();
       final res = await DiscoverApi.search(
-          name: nameCtl.text, topic: topic, minStars: minStars, recentOnly: recentOnly, onlyLicense: lic);
+          name: nameCtl.text,
+          topic: topic,
+          minStars: minStars,
+          recentOnly: recentOnly,
+          onlyLicense: lic,
+          exclude: {...known, if (!_showRejected) ...rejected});
       _note.clear();
       _hidden.clear();
       _hiddenCount.clear();
@@ -97,6 +102,9 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
         shown.add(r);
       }
       if (!mounted) return;
+      if (DiscoverApi.lastWarning != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(DiscoverApi.lastWarning!)));
+      }
       setState(() {
         _seen = seen;
         _known = known;
