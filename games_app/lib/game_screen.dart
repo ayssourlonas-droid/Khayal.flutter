@@ -141,7 +141,11 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
     _host = uri.host;
-    StatsPing.hit(_url);
+    // نسجّل الفتح بعد ثانيتين فقط إن بقي اللاعب في اللعبة (يتجاهل الدخول العرضي)
+    final statsUrl = _url;
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) StatsPing.hit(statsUrl);
+    });
 
     WebViewController? c0;
     final c = WebViewController()
