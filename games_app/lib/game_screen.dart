@@ -10,6 +10,7 @@ import 'app_state.dart';
 import 'colors.dart';
 import 'game_library.dart';
 import 'net_loader.dart';
+import 'stats_ping.dart';
 
 /// يقابل GameScreen.gd + GameWebView.gd + إضافة KhayalWebView:
 /// يشغّل لعبة الويب داخل WebView محصّن (https فقط، بلا جسر JS، تنقّل داخل نفس الموقع،
@@ -140,6 +141,7 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
     _host = uri.host;
+    StatsPing.hit(_url);
 
     WebViewController? c0;
     final c = WebViewController()
