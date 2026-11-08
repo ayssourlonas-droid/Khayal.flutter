@@ -72,7 +72,7 @@ const String _kWrapperJs = r"""
         p.then(function (r) {
           try {
             var len = parseInt(r.headers.get('content-length') || '0', 10);
-            if (r.body && len > 1048576 && len < 209715200) {
+            if (r.body && len > 1048576 && len < 31457280) {
               st.total += len;
               var rd = r.clone().body.getReader();
               var pump = function () {
@@ -155,7 +155,9 @@ class _GameScreenState extends State<GameScreen> {
           return NavigationDecision.prevent;
         },
         onProgress: (p) {
-          if (mounted) setState(() => _progress = p / 100.0);
+          // لا نعيد بناء الشاشة عند كل نسبة مئوية (يثقل الأجهزة المتوسطة): كل 3% كفاية
+          final v = p / 100.0;
+          if (mounted && (p >= 100 || (v - _progress).abs() >= 0.03)) setState(() => _progress = v);
         },
         onPageStarted: (_) {
           if (mounted) setState(() {
@@ -181,7 +183,17 @@ class _GameScreenState extends State<GameScreen> {
     c0 = c;
     _controller = c;
     c.loadRequest(Uri.parse(_url));
-    _poll = Timer.periodic(const Duration(milliseconds: 700), (_) => _pollNet());
+    _schedulePoll();
+  }
+
+  /// استطلاع حالة التحميل بعد فتح اللعبة: بسرعة (0.7ث) فقط أثناء وجود تحميل جارٍ،
+  /// وبوتيرة هادئة (2ث) في اللعب العادي كي لا نستهلك المعالج أثناء اللعب.
+  void _schedulePoll() {
+    _poll?.cancel();
+    _poll = Timer(Duration(milliseconds: _netBusy ? 700 : 2000), () async {
+      await _pollNet();
+      if (mounted && _controller != null) _schedulePoll();
+    });
   }
 
   Future<void> _pollNet() async {
@@ -243,7 +255,6 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     final s = MediaQuery.of(context).size.shortestSide / 1080; // وحدة التصميم (تصغر الأشرطة في الوضع الأفقي)
     final title = ((_game['main_scene'] is Map ? _game['main_scene']['title_ar'] : '') ?? '').toString();
-    final credit = _game.isEmpty ? '' : GameLibrary.creditLine(_game);
 
     return Scaffold(
       backgroundColor: AppColors.gameBg,
@@ -323,13 +334,6 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     ),
                 ],
-              ),
-            ),
-            SizedBox(
-              height: 90 * s,
-              child: Center(
-                child: Text(credit,
-                    style: TextStyle(fontSize: 34 * s, color: Colors.white.withOpacity(0.6))),
               ),
             ),
           ],

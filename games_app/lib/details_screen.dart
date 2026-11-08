@@ -44,7 +44,7 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
   // أبعاد الكرت (غيّرها هنا إن أردت تجربة حجم آخر)
   static const double _posterLeft = 50;
   static const double _posterTop = 200;
-  static const double _posterW = 450;
+  static const double _posterW = 470;
   static const double _posterH = 700;
 
   late final Ticker _ticker;
@@ -66,6 +66,7 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
   late final List<Map<String, dynamic>> _special;
   late final List<Map<String, dynamic>> _cast;
   late final String _description;
+  late final String _credit; // سطر المصدر والحقوق: يُعرض منفصلاً بلون مختلف تحت الوصف
 
   @override
   void initState() {
@@ -87,7 +88,8 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
       });
     }
 
-    _description = '${details['description'] ?? ''}\n\n${GameLibrary.creditLine(game)}';
+    _description = '${details['description'] ?? ''}'.trim();
+    _credit = GameLibrary.creditLine(game).trim();
     _cast = _l(details['cast']).map(_m).toList();
 
     var special = _l(details['special_items']).map(_m).toList();
@@ -110,7 +112,7 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
 
     _active = [
       _special.isNotEmpty,
-      _description.trim().isNotEmpty,
+      (_description.isNotEmpty || _credit.isNotEmpty),
       _cast.isNotEmpty,
     ];
     if (!_active[1]) _selected = _active.indexOf(true).clamp(0, 2).toInt();
@@ -265,7 +267,6 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
             height: _posterH,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.9),
@@ -275,8 +276,7 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
+              child: ClipRect(
                 child: _posterBytes != null
                     ? Image.memory(_posterBytes!,
                         width: _posterW, height: _posterH, fit: BoxFit.cover, gaplessPlayback: true)
@@ -809,10 +809,23 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
       );
 
   Widget _descriptionBox() => SingleChildScrollView(
-        child: Text(
-          _description,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 50, color: Colors.white, height: 1.15, decoration: TextDecoration.none),
+        child: Column(
+          children: [
+            if (_description.isNotEmpty)
+              Text(
+                _description,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 50, color: Colors.white, height: 1.15, decoration: TextDecoration.none),
+              ),
+            if (_credit.isNotEmpty) ...[
+              const SizedBox(height: 36),
+              Text(
+                _credit,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 38, color: Color(0xFFB39DDB), height: 1.2, decoration: TextDecoration.none),
+              ),
+            ],
+          ],
         ),
       );
 
