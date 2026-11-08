@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'store.dart';
 import 'theme.dart';
-import 'actions_screen.dart';
-import 'game_form_screen.dart';
-import 'games_list_screen.dart';
+import 'games_hub_screen.dart';
 import 'server_screen.dart';
 import 'settings_screen.dart';
 import 'stats_screen.dart';
@@ -115,12 +113,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(child: Text('ابدأ من الإعدادات: أدخل GitHub Token (وCloudinary لرفع الصور).')),
                 ]),
               ),
-            _tile(Icons.add_circle, 'إضافة لعبة جديدة', 'نموذج كامل مع فحص الرخصة',
-                const [Color(0xFF7B1FA2), Color(0xFFAD00BA)], () => _go(const GameFormScreen())),
-            _tile(Icons.edit_note, 'تعديل الألعاب', 'القائمة، المميزة، وللمراجعة',
-                const [Color(0xFF4527A0), Color(0xFF7C4DFF)], () => _go(const GamesListScreen())),
-            _tile(Icons.rocket_launch, 'استيراد الألعاب', 'استيراد ومتابعة عبر GitHub Actions',
-                const [Color(0xFFE65100), Color(0xFFFF9800)], () => _go(const ActionsScreen())),
+            _tile(Icons.sports_esports, 'الألعاب', 'إضافة، تعديل، مراجعة، استيراد وبحث شامل',
+                const [Color(0xFF7B1FA2), Color(0xFFFF9800)], () => _go(const GamesHubScreen())),
             _tile(Icons.bar_chart, 'إحصاءات اللعب', 'أكثر الألعاب فتحاً (يحتاج Worker)',
                 const [Color(0xFF1565C0), Color(0xFF42A5F5)], () => _go(const StatsScreen())),
             _tile(Icons.cloud_upload, 'الإصدار وروابط الدعم', 'version.json ومحرر JSON',

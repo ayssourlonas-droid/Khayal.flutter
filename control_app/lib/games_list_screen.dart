@@ -4,15 +4,17 @@ import 'github.dart';
 import 'theme.dart';
 import 'ui.dart';
 import 'game_form_screen.dart';
+import 'actions_api.dart';
 
 class GamesListScreen extends StatefulWidget {
-  const GamesListScreen({super.key});
+  final int initialTab; // 0 المنشورة، 1 المميزة، 2 للمراجعة
+  const GamesListScreen({super.key, this.initialTab = 0});
   @override
   State<GamesListScreen> createState() => _GamesListScreenState();
 }
 
 class _GamesListScreenState extends State<GamesListScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 3, vsync: this, initialIndex: widget.initialTab.clamp(0, 2));
   List<Map<String, dynamic>> _games = [];
   List<Map<String, dynamic>> _featured = [];
   List<Map<String, dynamic>> _pending = [];
@@ -164,6 +166,38 @@ class _GamesListScreenState extends State<GamesListScreen> with SingleTickerProv
     );
   }
 
+  /// يعيد "طبخ" اللعبة بأحدث نسخة من أدوات المعالجة: يجلب المستودع الأصلي من جديد ويُشغّل import-game.yml.
+  /// publish.py يتعرّف على اللعبة من source_url فيحدّث ملفاتها فقط دون المساس بسجلها (الاسم، التقييم، التصنيفات...).
+  Future<void> _reimport(Map<String, dynamic> g) async {
+    final d = _m(g['details_scene']);
+    final url = '${d['source_url'] ?? ''}'.trim();
+    final name = '${_m(g['main_scene'])['title_ar'] ?? '?'}';
+    if (!url.startsWith('https://github.com/')) {
+      toast(context, 'لا يوجد رابط مصدر على GitHub لهذه اللعبة، لا يمكن إعادة استيرادها.', error: true);
+      return;
+    }
+    final o = '${d['orientation'] ?? ''}';
+    if (!await confirm(
+        context,
+        'إعادة الاستيراد',
+        'سيُجلب "$name" من مصدرها الأصلي ويُعاد فحصها وبناؤها بأحدث أدوات المعالجة، وتُستبدل ملفاتها فقط. '
+            'بياناتها (الاسم، الوصف، التصنيفات، التقييم) تبقى كما هي. ولن تُحفظ إعدادات الاستيراد اليدوية السابقة (مجلد/أمر بناء مخصصان).',
+        ok: 'أعد الاستيراد')) return;
+    try {
+      await ActionsApi.dispatch('import-game.yml', {
+        'repo_url': url,
+        'orientation': (o == 'portrait' || o == 'landscape' || o == 'both') ? o : 'portrait',
+        'auto_publish': 'no',
+        'prune': 'smart',
+        'media': 'safe',
+        'ai_test': 'no',
+      });
+      if (mounted) toast(context, 'بدأت إعادة الاستيراد ✓ تابع النتيجة في تبويب السجل بصفحة الاستيراد');
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
   Widget _card(Map<String, dynamic> g) {
     final main = _m(g['main_scene']);
     final d = _m(g['details_scene']);
@@ -192,12 +226,18 @@ class _GamesListScreenState extends State<GamesListScreen> with SingleTickerProv
         ),
         isThreeLine: why.isNotEmpty,
         trailing: _tabs.index == 2
-            ? null
+            ? IconButton(
+                tooltip: 'إعادة الاستيراد من المصدر',
+                icon: const Icon(Icons.refresh, color: Pal.lime),
+                onPressed: () => _reimport(g),
+              )
             : PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'hide') _hide(g);
+                  if (v == 'reimport') _reimport(g);
                 },
                 itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'reimport', child: Text('إعادة الاستيراد من المصدر')),
                   PopupMenuItem(value: 'hide', child: Text('إخفاء حتى المراجعة')),
                 ],
               ),

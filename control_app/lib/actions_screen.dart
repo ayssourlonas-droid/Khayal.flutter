@@ -5,6 +5,7 @@ import 'actions_api.dart';
 import 'theme.dart';
 import 'ui.dart';
 import 'discover_tab.dart';
+import 'import_verdict.dart';
 
 /// استيراد ألعاب الويب عبر GitHub Actions ومتابعة تشغيلاتها (نتيجة، أخطاء، إلغاء، إعادة).
 class ActionsScreen extends StatefulWidget {
@@ -37,6 +38,7 @@ class _ActionsScreenState extends State<ActionsScreen> with SingleTickerProvider
   bool _loadingRuns = true;
   String? _runsErr;
   Timer? _timer;
+  final Map<int, Verdict> _verdicts = {};
 
   @override
   void initState() {
@@ -65,6 +67,27 @@ class _ActionsScreenState extends State<ActionsScreen> with SingleTickerProvider
       if (mounted) setState(() => _runsErr = '$e');
     }
     if (mounted) setState(() => _loadingRuns = false);
+    _resolveVerdicts();
+  }
+
+  /// يقرأ حكم كل تشغيل (بثلاثة طلبات متوازية كحد أقصى) ويخزّنه؛ المكتمل لا يُعاد جلبه.
+  Future<void> _resolveVerdicts() async {
+    final todo = [
+      for (final r in _runs)
+        if (ImportVerdicts.cached(r['id'] as int) == null || '${r['status']}' != 'completed') r
+    ];
+    var i = 0;
+    Future<void> worker() async {
+      while (i < todo.length) {
+        final r = todo[i++];
+        try {
+          final v = await ImportVerdicts.resolve(r);
+          if (mounted) setState(() => _verdicts[r['id'] as int] = v);
+        } catch (_) {}
+      }
+    }
+
+    await Future.wait([worker(), worker(), worker()]);
   }
 
   Future<void> _startImport() async {
@@ -212,39 +235,53 @@ class _ActionsScreenState extends State<ActionsScreen> with SingleTickerProvider
   }
 
   Widget _runCard(Map<String, dynamic> r) {
+    final id = r['id'] as int;
+    final v = _verdicts[id] ?? ImportVerdicts.cached(id);
     final st = '${r['status']}';
-    final cc = '${r['conclusion']}';
     final running = st != 'completed';
     Widget icon;
     Color color;
-    String label;
-    if (running) {
+    String head;
+    String detail = '';
+    if (v == null) {
+      // لم يُقرأ الحكم بعد: حالة أساسية مؤقتة
+      color = running ? Pal.purple : Colors.grey;
       icon = const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5));
-      color = Pal.purple;
-      label = st == 'queued' ? 'في الانتظار' : 'يعمل';
-    } else if (cc == 'success') {
-      icon = const Icon(Icons.check_circle, color: Pal.ok);
-      color = Pal.ok;
-      label = 'نجح';
-    } else if (cc == 'cancelled') {
-      icon = const Icon(Icons.cancel, color: Colors.grey);
-      color = Colors.grey;
-      label = 'أُلغي';
+      head = running ? (st == 'queued' ? 'في الانتظار' : 'يعمل') : 'جارٍ قراءة النتيجة...';
     } else {
-      icon = const Icon(Icons.error, color: Pal.bad);
-      color = Pal.bad;
-      label = 'فشل';
+      color = v.color;
+      icon = v.level == VLevel.running
+          ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
+          : Icon(v.icon, color: color);
+      head = v.label;
+      switch (v.level) {
+        case VLevel.red:
+          detail = v.title;
+          break;
+        case VLevel.orange:
+          detail = '${v.warnings.length} ملاحظة تحتاج نظرة';
+          break;
+        case VLevel.green:
+          detail = 'في «للمراجعة»، لم تُرصد مشاكل';
+          break;
+        default:
+          break;
+      }
     }
+    final name = (v != null && v.repoName.isNotEmpty) ? v.repoName : '${r['name']} #${r['run_number']}';
     return Card(
       color: Pal.surface,
       shape: Pal.cardShape(color),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       child: ListTile(
         leading: icon,
-        title: Text('${r['name']} #${r['run_number']}'),
-        subtitle: Text('$label · ${_ago(r['created_at'])}\n${(r['display_title'] ?? '').toString()}',
-            maxLines: 2, overflow: TextOverflow.ellipsis),
-        isThreeLine: true,
+        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text.rich(TextSpan(children: [
+          TextSpan(text: head, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          TextSpan(text: ' · ${_ago(r['created_at'])}'),
+          if (detail.isNotEmpty) TextSpan(text: '\n$detail'),
+        ]), maxLines: 3, overflow: TextOverflow.ellipsis),
+        isThreeLine: detail.isNotEmpty,
         trailing: const Icon(Icons.chevron_left),
         onTap: () async {
           await Navigator.push(context, MaterialPageRoute(builder: (_) => RunDetailScreen(run: r)));
@@ -284,6 +321,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
   List<Map<String, dynamic>> jobs = [];
   final Map<int, List<Map<String, String>>> errors = {};
   List<Map<String, dynamic>> arts = [];
+  Verdict? verdict;
   bool loading = true;
   String? err;
   Timer? _timer;
@@ -320,6 +358,9 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
           }
         }
       }
+      try {
+        verdict = await ImportVerdicts.resolve(run, force: true);
+      } catch (_) {}
       if (!running) arts = await ActionsApi.artifacts(id);
       err = null;
     } catch (e) {
@@ -374,8 +415,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : ListView(padding: const EdgeInsets.all(14), children: [
               if (err != null) Text(err!, style: const TextStyle(color: Pal.bad)),
-              Text((run['display_title'] ?? '').toString(), style: const TextStyle(fontSize: 15)),
-              const SizedBox(height: 4),
+              if (verdict != null) _verdictPanel(verdict!),
               Text(_ago(run['created_at']), style: const TextStyle(color: Colors.white60)),
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 6, children: [
@@ -427,6 +467,45 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     );
   }
 
+  Widget _verdictPanel(Verdict v) {
+    final c = v.color;
+    Widget block(String head, String body) => Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(head, style: TextStyle(fontWeight: FontWeight.bold, color: c)),
+            const SizedBox(height: 3),
+            SelectableText(body, style: const TextStyle(fontSize: 14, height: 1.5)),
+          ]),
+        );
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.13),
+        border: Border.all(color: c.withOpacity(0.7), width: 1.5),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          v.level == VLevel.running
+              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
+              : Icon(v.icon, color: c),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Text('${v.label}: ${v.title}',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: c))),
+        ]),
+        if (v.repoName.isNotEmpty) block('المستودع', 'https://github.com/${v.repoName}'),
+        if (v.stage.isNotEmpty && v.level == VLevel.running) block('المرحلة الآن', v.stage),
+        if (v.why.isNotEmpty) block('ماذا حدث', v.why),
+        if (v.advice.isNotEmpty) block('ما العمل', v.advice),
+        if (v.reasons.isNotEmpty) block('تفاصيل الرفض', v.reasons.map((e) => '• $e').join('\n')),
+        if (v.warnings.isNotEmpty) block('التحذيرات', v.warnings.map((e) => '• $e').join('\n')),
+      ]),
+    );
+  }
+
   Widget _note(Map<String, String> a) {
     final lvl = a['level'];
     final color = lvl == 'failure' ? Pal.bad : (lvl == 'warning' ? Pal.warn : Pal.ok);
@@ -468,7 +547,8 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
               leading: Icon(_icon(s['status'], s['conclusion']), size: 18, color: _color(s['status'], s['conclusion'])),
               title: Text('${s['name']}'),
             ),
-          for (final a in errs) _note(a),
+          for (final a in errs)
+            if ((a['title'] ?? '') != 'خيال-نتيجة') _note(a),
         ],
       ),
     );
