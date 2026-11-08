@@ -56,6 +56,13 @@ jobs:
           ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
           APP_NAME: ${{ vars.APP_NAME }}
         run: python3 tool/setup_android.py .
+      - name: Cache Gradle distribution
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/gradle-8.9-bin.zip
+          key: gradle-dist-8.9-bin
+      - name: Prefetch Gradle (retry on network errors)
+        run: bash ../.github/scripts/fetch_gradle.sh android
       - name: Prepare signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -139,6 +146,13 @@ jobs:
         env:
           APP_NAME: ${{ vars.CONTROL_APP_NAME }}
         run: python3 tool/setup_android.py .
+      - name: Cache Gradle distribution
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/gradle-8.9-bin.zip
+          key: gradle-dist-8.9-bin
+      - name: Prefetch Gradle (retry on network errors)
+        run: bash ../.github/scripts/fetch_gradle.sh android
       - name: Prepare signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
