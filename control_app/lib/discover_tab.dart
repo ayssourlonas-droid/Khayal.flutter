@@ -39,6 +39,8 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
   Set<String> _rejected = {};
   bool _showRejected = false;
   int _rejHidden = 0;
+  int _fetched = -1; // عدد ما جلبه GitHub في آخر بحث (-1 = لم يُجرَ بحث)
+  int _knownInFetched = 0;
   List<SeenEntry> _seen = [];
   // مفتاح المستودع -> ملاحظة (مكررة/اسم مشابه) ؛ والمخفي من النسخ المشابهة داخل النتائج
   final Map<String, String> _note = {};
@@ -110,6 +112,8 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
         _known = known;
         _rejected = rejected;
         _rejHidden = rejHidden;
+        _fetched = res.length;
+        _knownInFetched = res.where((r) => known.contains(DiscoverApi.norm(r.url))).length;
         _results = shown;
         _selected.clear();
       });
@@ -217,6 +221,14 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
       ),
       if (_searching) const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator()),
       if (_err != null) Padding(padding: const EdgeInsets.all(8), child: Text(_err!, style: const TextStyle(color: Pal.bad))),
+      if (_fetched >= 0 && !_searching)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(
+            'جلب GitHub $_fetched مستودعاً: $_knownInFetched مسجّلة سابقاً، $_rejHidden مرفوضة مخفية، ${_hidden.length} مكررة مخفية ← المعروض ${_results.length}',
+            style: const TextStyle(fontSize: 12, color: Colors.white70),
+          ),
+        ),
       if (_results.isNotEmpty) ...[
         const Divider(height: 28),
         Text('النتائج (${_results.length}) — أُخفيت ${_hidden.length} نسخة مكررة محتملة${_rejHidden > 0 ? ' و$_rejHidden مرفوضة سابقاً' : ''}', style: const TextStyle(fontWeight: FontWeight.bold)),
