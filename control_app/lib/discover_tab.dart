@@ -258,6 +258,7 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
       if (_results.isNotEmpty) ...[
         const Divider(height: 28),
         Text('النتائج (${_results.length}) — أُخفيت ${_hidden.length} نسخة مكررة محتملة${_rejHidden > 0 ? ' و$_rejHidden مرفوضة سابقاً' : ''}', style: const TextStyle(fontWeight: FontWeight.bold)),
+        _selectBar(),
         for (final r in _results) _tile(r),
         const Divider(height: 28),
         DropdownButtonFormField<String>(
@@ -284,6 +285,34 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
         ),
       ],
     ]);
+  }
+
+  /// الصالح للتحديد: غير المسجّل سابقاً (والمسجّل معطّل أصلاً)
+  List<String> get _selectable => [for (final r in _results) if (!_isKnown(r)) r.fullName];
+
+  Widget _selectBar() {
+    final all = _selectable;
+    final allOn = all.isNotEmpty && all.every(_selected.contains);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(children: [
+        OutlinedButton.icon(
+          onPressed: (_running || all.isEmpty)
+              ? null
+              : () => setState(() {
+                    if (allOn) {
+                      _selected.removeAll(all);
+                    } else {
+                      _selected.addAll(all);
+                    }
+                  }),
+          icon: Icon(allOn ? Icons.deselect : Icons.select_all, size: 18),
+          label: Text(allOn ? 'إلغاء تحديد الكل' : 'تحديد الكل (${all.length})'),
+        ),
+        const SizedBox(width: 10),
+        Text('المحدد: ${_selected.length}', style: const TextStyle(color: Pal.lime, fontWeight: FontWeight.bold)),
+      ]),
+    );
   }
 
   Widget _tile(FoundRepo r) {
