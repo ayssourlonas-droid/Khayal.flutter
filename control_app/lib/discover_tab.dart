@@ -413,7 +413,8 @@ class _RepoCardState extends State<_RepoCard> {
             : widget.rejected
                 ? Pal.bad
                 : Pal.purple;
-    final gpl = r.license.toUpperCase().contains('GPL');
+    final lu = r.license.toUpperCase();
+    final gpl = lu.contains('GPL') || lu.contains('MPL') || lu.contains('-SA-');  // حقوق متبادلة
     final topics = r.topics.isEmpty ? <String>[] : r.topics.split(', ').where((e) => e.isNotEmpty).take(4).toList();
     return Card(
       color: Pal.surface,

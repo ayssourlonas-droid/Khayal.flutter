@@ -39,6 +39,18 @@ class DiscoverApi {
     'GPL-3.0': 'gpl-3.0',
     'ISC': 'isc',
     'Zlib': 'zlib',
+    'Unlicense': 'unlicense',
+    '0BSD': '0bsd',
+    'BSL-1.0': 'bsl-1.0',
+    'WTFPL': 'wtfpl',
+    'Artistic-2.0': 'artistic-2.0',
+    'AFL-3.0': 'afl-3.0',
+    // حقوق متبادلة (تُقبل مع ملاحظة)
+    'GPL-2.0': 'gpl-2.0',
+    'LGPL-3.0': 'lgpl-3.0',
+    'LGPL-2.1': 'lgpl-2.1',
+    'MPL-2.0': 'mpl-2.0',
+    'CC-BY-SA-4.0': 'cc-by-sa-4.0',
   };
 
   static Map<String, String> _h() {
