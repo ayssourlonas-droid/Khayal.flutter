@@ -14,8 +14,10 @@ class ActionsScreen extends StatefulWidget {
   State<ActionsScreen> createState() => _ActionsScreenState();
 }
 
-class _ActionsScreenState extends State<ActionsScreen> with SingleTickerProviderStateMixin {
+class _ActionsScreenState extends State<ActionsScreen> with TickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 3, vsync: this);
+  // تبويبات السجل الفرعية: المرفوضة | تحذيرات (الافتراضي) | نجحت
+  late final TabController _logTabs = TabController(length: 3, vsync: this, initialIndex: 1);
 
   bool _busy = false;
   static const _wf = 'import-game.yml';
@@ -36,6 +38,10 @@ class _ActionsScreenState extends State<ActionsScreen> with SingleTickerProvider
   // ── السجل ──
   List<Map<String, dynamic>> _runs = [];
   bool _loadingRuns = true;
+  static const _pageSize = 30;
+  int _page = 1;
+  bool _more = false;
+  bool _loadingMore = false;
   String? _runsErr;
   Timer? _timer;
   final Map<int, Verdict> _verdicts = {};
@@ -52,21 +58,50 @@ class _ActionsScreenState extends State<ActionsScreen> with SingleTickerProvider
   @override
   void dispose() {
     _timer?.cancel();
+    _logTabs.dispose();
     super.dispose();
   }
 
   Future<void> _loadRuns({bool silent = false}) async {
     if (!silent) setState(() => _loadingRuns = true);
     try {
-      final r = await ActionsApi.runs(_wf);
+      final r = await ActionsApi.runs(_wf, n: _pageSize);
       if (mounted) setState(() {
-        _runs = r;
+        if (silent && _runs.length > r.length) {
+          // تحديث دوري: نحدّث الصفحة الأولى فقط ونُبقي ما حُمّل من الأقدم
+          final ids = {for (final x in r) x['id']};
+          _runs = [...r, ..._runs.where((x) => !ids.contains(x['id']))];
+        } else {
+          _runs = r;
+          _page = 1;
+          _more = r.length >= _pageSize;
+        }
         _runsErr = null;
       });
     } catch (e) {
       if (mounted) setState(() => _runsErr = '$e');
     }
     if (mounted) setState(() => _loadingRuns = false);
+    _resolveVerdicts();
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final r = await ActionsApi.runs(_wf, n: _pageSize, page: _page + 1);
+      if (mounted) {
+        setState(() {
+          final ids = {for (final x in _runs) x['id']};
+          _runs = [..._runs, ...r.where((x) => !ids.contains(x['id']))];
+          _page++;
+          _more = r.length >= _pageSize;
+        });
+      }
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+    if (mounted) setState(() => _loadingMore = false);
     _resolveVerdicts();
   }
 
@@ -217,20 +252,108 @@ class _ActionsScreenState extends State<ActionsScreen> with SingleTickerProvider
       );
 
   // ───────────── تبويب السجل ─────────────
+  /// 0 = مرفوضة، 1 = تحذيرات، 2 = نجحت، 3 = ملغاة (قسم سفلي)، -1 = قيد التشغيل/لم تُقرأ نتيجتها بعد
+  int _group(Map<String, dynamic> r) {
+    final id = r['id'] as int;
+    final v = _verdicts[id] ?? ImportVerdicts.cached(id);
+    if (v == null || v.level == VLevel.running) return -1;
+    switch (v.level) {
+      case VLevel.cancelled:
+        return 3;
+      case VLevel.red:
+        return 0;
+      case VLevel.orange:
+        return 1;
+      case VLevel.green:
+        return 2;
+      case VLevel.running:
+        return -1;
+    }
+  }
+
   Widget _logTab() {
     if (_loadingRuns) return const Center(child: CircularProgressIndicator());
     if (_runsErr != null) {
       return ListView(padding: const EdgeInsets.all(20), children: [Text(_runsErr!, style: const TextStyle(color: Pal.bad))]);
     }
+    final pending = [for (final r in _runs) if (_group(r) == -1) r];
+    final cancelled = [for (final r in _runs) if (_group(r) == 3) r];
+    final groups = [
+      for (var g = 0; g < 3; g++) [for (final r in _runs) if (_group(r) == g) r]
+    ];
+    return Column(children: [
+      TabBar(
+        controller: _logTabs,
+        indicatorColor: Pal.lime,
+        labelColor: Pal.lime,
+        unselectedLabelColor: Colors.white54,
+        tabs: [
+          Tab(text: 'المرفوضة (${groups[0].length})'),
+          Tab(text: 'تحذيرات (${groups[1].length})'),
+          Tab(text: 'نجحت (${groups[2].length})'),
+        ],
+      ),
+      Expanded(
+        child: TabBarView(controller: _logTabs, children: [
+          _runList(groups[0], pending, 'لا توجد مرفوضة بين التشغيلات المحمّلة', cancelled),
+          _runList(groups[1], pending, 'لا توجد تحذيرات بين التشغيلات المحمّلة', cancelled),
+          _runList(groups[2], pending, 'لا توجد ناجحة بلا تحذيرات بين التشغيلات المحمّلة', cancelled),
+        ]),
+      ),
+    ]);
+  }
+
+  Widget _runList(List<Map<String, dynamic>> items, List<Map<String, dynamic>> pending, String emptyText,
+      List<Map<String, dynamic>> cancelled) {
     return RefreshIndicator(
-      onRefresh: _loadRuns,
-      child: _runs.isEmpty
-          ? ListView(children: const [SizedBox(height: 120), Center(child: Text('لا توجد تشغيلات'))])
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: _runs.length,
-              itemBuilder: (_, i) => _runCard(_runs[i]),
+      onRefresh: () => _loadRuns(silent: true),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        children: [
+          if (pending.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+              child: Text('قيد التشغيل أو قراءة النتيجة (${pending.length})',
+                  style: const TextStyle(color: Pal.purple, fontWeight: FontWeight.bold)),
             ),
+            for (final r in pending) _runCard(r),
+            const Divider(height: 24),
+          ],
+          if (items.isEmpty)
+            Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(emptyText, style: const TextStyle(color: Colors.white54))))
+          else
+            for (final r in items) _runCard(r),
+          if (cancelled.isNotEmpty) ...[
+            const Divider(height: 24),
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                key: const PageStorageKey('cancelled_runs'),
+                leading: const Icon(Icons.cancel, color: Colors.grey),
+                title: Text('الملغاة (${cancelled.length})', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                children: [for (final r in cancelled) _runCard(r)],
+              ),
+            ),
+          ],
+          if (_runs.isEmpty)
+            const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('لا توجد تشغيلات')))
+          else if (!_more)
+            const Padding(
+                padding: EdgeInsets.all(16), child: Center(child: Text('هذه كل التشغيلات', style: TextStyle(color: Colors.white38))))
+          else
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: OutlinedButton.icon(
+                onPressed: _loadingMore ? null : _loadMore,
+                icon: _loadingMore
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.expand_more),
+                label: const Text('عرض تشغيلات أقدم'),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

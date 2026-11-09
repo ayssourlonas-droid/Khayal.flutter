@@ -64,10 +64,10 @@ class ActionsApi {
 
   // ── متابعة ──
   /// تشغيلات workflow محدد (مثل import-game.yml).
-  static Future<List<Map<String, dynamic>>> runs(String workflowFile, {int n = 20}) async {
+  static Future<List<Map<String, dynamic>>> runs(String workflowFile, {int n = 20, int page = 1}) async {
     _need();
     final r = await http
-        .get(_u('/actions/workflows/$workflowFile/runs', {'per_page': '$n'}), headers: _h())
+        .get(_u('/actions/workflows/$workflowFile/runs', {'per_page': '$n', 'page': '$page'}), headers: _h())
         .timeout(_timeout);
     return _list(_ok(r), 'workflow_runs');
   }
