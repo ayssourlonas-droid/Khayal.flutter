@@ -288,25 +288,160 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
 
   Widget _tile(FoundRepo r) {
     final known = _isKnown(r);
-    final st = _state[r.fullName];
+    final rejected = _rejected.contains(DiscoverApi.norm(r.url));
+    return _RepoCard(
+      r: r,
+      known: known,
+      rejected: rejected,
+      note: _note[r.fullName],
+      hiddenN: _hiddenCount[r.fullName] ?? 0,
+      state: _state[r.fullName],
+      selected: _selected.contains(r.fullName),
+      enabled: !(known || _running),
+      onChanged: (v) => setState(() => v ? _selected.add(r.fullName) : _selected.remove(r.fullName)),
+      onOpen: () => launchUrl(Uri.parse(r.url), mode: LaunchMode.externalApplication),
+    );
+  }
+}
+
+
+String _starsText(int n) => n >= 1000 ? '${(n / 1000).toStringAsFixed(n >= 10000 ? 0 : 1)}k' : '$n';
+
+/// بطاقة نتيجة اكتشاف: ترتيب ثابت (عنوان ونجوم، شارات، حالة، ثم الوصف في سطر واحد قابل للتوسيع).
+class _RepoCard extends StatefulWidget {
+  final FoundRepo r;
+  final bool known, rejected, selected, enabled;
+  final String? note, state;
+  final int hiddenN;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onOpen;
+  const _RepoCard({
+    required this.r,
+    required this.known,
+    required this.rejected,
+    required this.selected,
+    required this.enabled,
+    required this.note,
+    required this.state,
+    required this.hiddenN,
+    required this.onChanged,
+    required this.onOpen,
+  });
+
+  @override
+  State<_RepoCard> createState() => _RepoCardState();
+}
+
+class _RepoCardState extends State<_RepoCard> {
+  bool _open = false;
+
+  Widget _chip(String text, Color c, {IconData? icon, bool filled = false}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: filled ? c.withOpacity(0.18) : Colors.transparent,
+          border: Border.all(color: c.withOpacity(0.55)),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (icon != null) ...[Icon(icon, size: 12, color: c), const SizedBox(width: 4)],
+          Text(text, style: TextStyle(fontSize: 11, color: c, fontWeight: FontWeight.w500)),
+        ]),
+      );
+
+  Widget _desc(String text) {
+    const thin = TextStyle(fontSize: 12, color: Colors.white60, fontWeight: FontWeight.w300, height: 1.5);
+    return LayoutBuilder(builder: (ctx, c) {
+      final tp = TextPainter(
+        text: TextSpan(text: text, style: thin),
+        maxLines: 1,
+        textDirection: Directionality.of(ctx),
+      )..layout(maxWidth: c.maxWidth - 30);
+      final overflow = tp.didExceedMaxWidth;
+      if (!overflow && !_open) return Text(text, style: thin, maxLines: 1);
+      return InkWell(
+        onTap: () => setState(() => _open = !_open),
+        child: _open
+            ? Text.rich(TextSpan(children: [
+                TextSpan(text: text, style: thin),
+                const TextSpan(text: '  ▲', style: TextStyle(color: Pal.lime, fontSize: 11)),
+              ]))
+            : Row(children: [
+                Expanded(child: Text(text, style: thin, maxLines: 1, overflow: TextOverflow.clip)),
+                const Text(' •••', style: TextStyle(color: Pal.lime, fontWeight: FontWeight.bold)),
+              ]),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = widget.r;
+    final owner = r.fullName.contains('/') ? r.fullName.split('/').first : '';
+    final border = widget.selected
+        ? Pal.lime
+        : widget.known
+            ? Pal.ok
+            : widget.rejected
+                ? Pal.bad
+                : Pal.purple;
+    final gpl = r.license.toUpperCase().contains('GPL');
+    final topics = r.topics.isEmpty ? <String>[] : r.topics.split(', ').where((e) => e.isNotEmpty).take(4).toList();
     return Card(
-      shape: Pal.cardShape(),
-      child: CheckboxListTile(
-        value: _selected.contains(r.fullName),
-        onChanged: (known || _running)
-            ? null
-            : (v) => setState(() => v == true ? _selected.add(r.fullName) : _selected.remove(r.fullName)),
-        title: Text('${r.fullName}  ⭐${r.stars}', style: const TextStyle(fontSize: 14)),
-        subtitle: Text(
-          '${known ? '✓ مسجّلة سابقاً\n' : ''}${_rejected.contains(DiscoverApi.norm(r.url)) ? '✗ مرفوضة سابقاً\n' : ''}${_note[r.fullName] == null ? '' : '⚠ ${_note[r.fullName]}\n'}${(_hiddenCount[r.fullName] ?? 0) > 0 ? '+${_hiddenCount[r.fullName]} نسخ مشابهة مخفية\n' : ''}${r.desc.isEmpty ? '' : '${r.desc}\n'}'
-          '${r.license} • آخر تحديث ${r.pushed}${r.topics.isEmpty ? '' : '\n${r.topics}'}'
-          '${st == null ? '' : '\n» $st'}',
-          style: const TextStyle(fontSize: 12),
-        ),
-        secondary: IconButton(
-          icon: const Icon(Icons.open_in_new, size: 20),
-          onPressed: () => launchUrl(Uri.parse(r.url), mode: LaunchMode.externalApplication),
-        ),
+      color: Pal.surface,
+      shape: Pal.cardShape(border),
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Checkbox(
+            value: widget.selected,
+            onChanged: widget.enabled ? (v) => widget.onChanged(v == true) : null,
+          ),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(children: [
+                      if (owner.isNotEmpty) TextSpan(text: '$owner/', style: const TextStyle(color: Colors.white38, fontWeight: FontWeight.w300)),
+                      TextSpan(text: r.repoName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    ]),
+                    style: const TextStyle(fontSize: 14),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                _chip(_starsText(r.stars), Pal.warn, icon: Icons.star_rounded, filled: true),
+              ]),
+              const SizedBox(height: 7),
+              Wrap(spacing: 6, runSpacing: 5, children: [
+                _chip(r.license.isEmpty ? 'بلا رخصة' : r.license, gpl ? Pal.warn : Pal.ok, icon: Icons.verified_outlined),
+                _chip(r.pushed, Colors.blueGrey.shade200, icon: Icons.update),
+                for (final t in topics) _chip(t, Pal.purple),
+              ]),
+              if (widget.known || widget.rejected || widget.note != null || widget.hiddenN > 0 || widget.state != null) ...[
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 5, children: [
+                  if (widget.known) _chip('مسجّلة سابقاً', Pal.ok, icon: Icons.check_circle, filled: true),
+                  if (widget.rejected) _chip('مرفوضة سابقاً', Pal.bad, icon: Icons.block, filled: true),
+                  if (widget.note != null) _chip(widget.note!, Pal.warn, icon: Icons.warning_amber_rounded, filled: true),
+                  if (widget.hiddenN > 0) _chip('+${widget.hiddenN} نسخ مشابهة مخفية', Pal.purple, filled: true),
+                  if (widget.state != null) _chip(widget.state!, Pal.lime, icon: Icons.arrow_back, filled: true),
+                ]),
+              ],
+              if (r.desc.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _desc(r.desc.replaceAll(RegExp(r'\s+'), ' ').trim()),
+              ],
+            ]),
+          ),
+          IconButton(
+            icon: const Icon(Icons.open_in_new, size: 20, color: Colors.white54),
+            tooltip: 'فتح في GitHub',
+            onPressed: widget.onOpen,
+          ),
+        ]),
       ),
     );
   }
