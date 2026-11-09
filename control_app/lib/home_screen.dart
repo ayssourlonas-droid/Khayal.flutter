@@ -59,6 +59,52 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// مربع صغير (يوضع اثنان بجانب بعضهما).
+  Widget _square(IconData icon, String title, String sub, List<Color> colors, VoidCallback onTap) {
+    return AspectRatio(
+      aspectRatio: 1,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(colors: colors, begin: Alignment.topRight, end: Alignment.bottomLeft),
+            boxShadow: [BoxShadow(color: colors.last.withOpacity(0.35), blurRadius: 14, offset: const Offset(0, 6))],
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), shape: BoxShape.circle),
+                    child: Icon(icon, size: 30, color: Colors.white),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const SizedBox(height: 3),
+                  Text(sub,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.8))),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -117,10 +163,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 const [Color(0xFF7B1FA2), Color(0xFFFF9800)], () => _go(const GamesHubScreen())),
             _tile(Icons.bar_chart, 'إحصاءات اللعب', 'أكثر الألعاب فتحاً (يحتاج Worker)',
                 const [Color(0xFF1565C0), Color(0xFF42A5F5)], () => _go(const StatsScreen())),
-            _tile(Icons.cloud_upload, 'الإصدار وروابط الدعم', 'version.json ومحرر JSON',
-                const [Color(0xFF00695C), Color(0xFF26A69A)], () => _go(const ServerScreen())),
-            _tile(Icons.settings, 'الإعدادات', 'GitHub وCloudinary',
-                const [Color(0xFF37474F), Color(0xFF607D8B)], () => _go(const SettingsScreen())),
+            Row(children: [
+              Expanded(
+                child: _square(Icons.cloud_upload, 'الإصدار وروابط الدعم', 'version.json ومحرر JSON',
+                    const [Color(0xFF00695C), Color(0xFF26A69A)], () => _go(const ServerScreen())),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _square(Icons.settings, 'الإعدادات', 'GitHub وCloudinary',
+                    const [Color(0xFF37474F), Color(0xFF607D8B)], () => _go(const SettingsScreen())),
+              ),
+            ]),
           ]),
         ),
       ),
