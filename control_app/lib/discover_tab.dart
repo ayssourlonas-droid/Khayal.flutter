@@ -385,7 +385,7 @@ class _RepoCardState extends State<_RepoCard> {
         maxLines: 1,
         textDirection: Directionality.of(ctx),
       )..layout(maxWidth: c.maxWidth - 30);
-      final overflow = tp.didExceedMaxWidth;
+      final overflow = tp.didExceedMaxLines;
       if (!overflow && !_open) return Text(text, style: thin, maxLines: 1);
       return InkWell(
         onTap: () => setState(() => _open = !_open),
