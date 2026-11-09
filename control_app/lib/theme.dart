@@ -50,6 +50,10 @@ ThemeData buildTheme() {
       isDense: true,
       filled: true,
       fillColor: Pal.surface2,
+      // نص التلميح والعنوان الافتراضي: رمادي رقيق وخفيف، كي يتميّز عمّا يكتبه المستخدم فعلاً
+      hintStyle: const TextStyle(color: Colors.white30, fontWeight: FontWeight.w300),
+      labelStyle: const TextStyle(color: Colors.white38, fontWeight: FontWeight.w300),
+      floatingLabelStyle: const TextStyle(color: Colors.white54, fontWeight: FontWeight.w300),
       border: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide.none),
       enabledBorder: OutlineInputBorder(
           borderRadius: radius, borderSide: BorderSide(color: Pal.purple.withOpacity(0.25))),

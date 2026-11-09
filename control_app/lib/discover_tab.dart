@@ -21,6 +21,7 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
   bool get wantKeepAlive => true;
 
   static const _wf = 'import-queue.yml';
+  static const allTopics = '__all__';
   static const topics = ['html5-game', 'web-game', 'javascript-game', 'phaser', 'canvas-game', 'puzzle-game'];
 
   final nameCtl = TextEditingController();
@@ -62,13 +63,35 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
       final known = await DiscoverApi.knownSources();
       final seen = await DiscoverApi.seenEntries();
       final rejected = await DiscoverApi.rejectedSources();
-      final res = await DiscoverApi.search(
-          name: nameCtl.text,
-          topic: topic,
-          minStars: minStars,
-          recentOnly: recentOnly,
-          onlyLicense: lic,
-          exclude: {...known, if (!_showRejected) ...rejected});
+      final exclude = <String>{...known, if (!_showRejected) ...rejected};
+      // «كل التصنيفات»: نبحث في كل تصنيف على حدة ثم ندمج (البحث بالاسم لا يستعمل التصنيف)
+      final all = topic == allTopics && nameCtl.text.trim().isEmpty;
+      final tops = all ? topics : [topic];
+      final merged = <String, FoundRepo>{};
+      String? warn;
+      for (final t in tops) {
+        try {
+          final part = await DiscoverApi.search(
+              name: nameCtl.text,
+              topic: t,
+              minStars: minStars,
+              recentOnly: recentOnly,
+              onlyLicense: lic,
+              exclude: exclude,
+              wantNew: all ? 15 : 30,
+              maxPages: all ? 3 : 8);
+          for (final r in part) {
+            merged[r.fullName] = r;
+          }
+          if (DiscoverApi.lastWarning != null) warn = DiscoverApi.lastWarning;
+        } catch (e) {
+          if (merged.isEmpty) rethrow;
+          warn = 'توقف البحث مبكراً: $e';
+          break;
+        }
+      }
+      DiscoverApi.lastWarning = warn;
+      final res = merged.values.toList()..sort((a, b) => b.stars.compareTo(a.stars));
       _note.clear();
       _hidden.clear();
       _hiddenCount.clear();
@@ -179,7 +202,10 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
       DropdownButtonFormField<String>(
         value: topic,
         decoration: const InputDecoration(labelText: 'التصنيف (topic) في GitHub'),
-        items: [for (final t in topics) DropdownMenuItem(value: t, child: Text(t))],
+        items: [
+          const DropdownMenuItem(value: allTopics, child: Text('كل التصنيفات')),
+          for (final t in topics) DropdownMenuItem(value: t, child: Text(t)),
+        ],
         onChanged: (v) => setState(() => topic = v ?? topic),
       ),
       DropdownButtonFormField<String?>(
@@ -194,7 +220,7 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
       DropdownButtonFormField<int>(
         value: minStars,
         decoration: const InputDecoration(labelText: 'أقل عدد نجوم'),
-        items: [for (final n in [0, 5, 20, 50, 100, 500]) DropdownMenuItem(value: n, child: Text('$n+'))],
+        items: [for (final n in [0, 5, 20, 50, 100, 500]) DropdownMenuItem(value: n, child: Text(n == 0 ? 'بلا تحديد' : '$n+'))],
         onChanged: (v) => setState(() => minStars = v ?? minStars),
       ),
       SwitchListTile(
