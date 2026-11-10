@@ -29,7 +29,7 @@ class Config {
   /// اجعلها false قبل النشر بعد وضع المعرّفات الحقيقية.
   // عدّاد فتح الألعاب (يرسل اسم اللعبة فقط، بلا بيانات شخصية)
   static const statsUrl = 'https://khayal-stats1.ayssour-lonas.workers.dev';
-  static const useTestAds = true;
+  static const useTestAds = false;
   static const testBannerId = 'ca-app-pub-3940256099942544/6300978111';
   static const testRewardedId = 'ca-app-pub-3940256099942544/5224354917';
   static const testInterstitialId = 'ca-app-pub-3940256099942544/1033173712';
