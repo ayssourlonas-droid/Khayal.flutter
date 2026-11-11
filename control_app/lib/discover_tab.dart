@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'actions_api.dart';
 import 'discover_api.dart';
+import 'queue_api.dart';
 import 'name_key.dart';
 import 'rejected_screen.dart';
 import 'theme.dart';
@@ -152,6 +153,10 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
   Future<void> _startQueue() async {
     final list = _results.where((r) => _selected.contains(r.fullName) && !_isKnown(r)).toList();
     if (list.isEmpty) return;
+    if (await QueueApi.hasPending()) {
+      if (mounted) toast(context, 'يوجد طابور آخر بانتظار البدء؛ انتظر حتى يبدأ ثم أرسل (وإلا يُلغى الأقدم).', error: true);
+      return;
+    }
     setState(() {
       _running = true;
       _order

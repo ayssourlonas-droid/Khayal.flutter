@@ -6,16 +6,27 @@ import 'theme.dart';
 import 'ui.dart';
 import 'discover_tab.dart';
 import 'import_verdict.dart';
+import 'consts.dart';
+import 'github.dart';
+import 'games_pane.dart';
+import 'games_list_screen.dart';
+import 'game_form_screen.dart';
+import 'seen_games.dart';
 
 /// استيراد ألعاب الويب عبر GitHub Actions ومتابعة تشغيلاتها (نتيجة، أخطاء، إلغاء، إعادة).
 class ActionsScreen extends StatefulWidget {
-  const ActionsScreen({super.key});
+  final int initialTab; // 0 استيراد، 1 اكتشاف، 2 السجل، 3 للمراجعة، 4 الألعاب
+  const ActionsScreen({super.key, this.initialTab = 0});
   @override
   State<ActionsScreen> createState() => _ActionsScreenState();
 }
 
 class _ActionsScreenState extends State<ActionsScreen> with TickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 5, vsync: this, initialIndex: widget.initialTab.clamp(0, 4));
+  List<Map<String, dynamic>> _games = [];
+  List<Map<String, dynamic>> _featured = [];
+  List<Map<String, dynamic>> _pending = [];
+  bool _loadingGames = true;
   // تبويبات السجل الفرعية: المرفوضة | تحذيرات (الافتراضي) | نجحت
   late final TabController _logTabs = TabController(length: 3, vsync: this, initialIndex: 1);
 
@@ -50,6 +61,10 @@ class _ActionsScreenState extends State<ActionsScreen> with TickerProviderStateM
   void initState() {
     super.initState();
     _loadRuns();
+    _tabs.addListener(() {
+      if (mounted && !_tabs.indexIsChanging) setState(() {});
+    });
+    _loadGames();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (_runs.any((r) => r['status'] != 'completed')) _loadRuns(silent: true);
     });
@@ -59,8 +74,43 @@ class _ActionsScreenState extends State<ActionsScreen> with TickerProviderStateM
   void dispose() {
     _timer?.cancel();
     _logTabs.dispose();
+    _tabs.dispose();
     super.dispose();
   }
+
+  Future<void> _loadGames() async {
+    if (mounted) setState(() => _loadingGames = true);
+    try {
+      await SeenGames.load();
+      _games = Github.asList((await Github.getJson(gamesFile)).data);
+      _featured = Github.asList((await Github.getJson(featuredFile)).data);
+      _pending = Github.asList((await Github.getJson(pendingFile)).data);
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+    if (mounted) setState(() => _loadingGames = false);
+  }
+
+  int _unseen(List<Map<String, dynamic>> l) => l.where((g) => SeenGames.badge(g) != null).length;
+
+  Tab _gTab(String t, List<Map<String, dynamic>> l) {
+    final u = _unseen(l);
+    return Tab(
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Text('$t (${l.length})'),
+      if (u > 0) ...[const SizedBox(width: 6), Badge(label: Text('$u'), backgroundColor: Pal.lime, textColor: Colors.black)],
+    ]));
+  }
+
+  Widget _gPane(int i) => GamesPane(
+        tab: i,
+        games: _games,
+        featured: _featured,
+        pending: _pending,
+        loading: _loadingGames,
+        onReload: _loadGames,
+        onSeenChanged: () => setState(() {}),
+      );
 
   Future<void> _loadRuns({bool silent = false}) async {
     if (!silent) setState(() => _loadingRuns = true);
@@ -161,15 +211,55 @@ class _ActionsScreenState extends State<ActionsScreen> with TickerProviderStateM
     return Scaffold(
       appBar: AppBar(
         title: const Text('استيراد وإدارة الألعاب'),
+        actions: [
+          IconButton(
+            tooltip: 'الألعاب المميزة',
+            icon: const Icon(Icons.star, color: Colors.amber, size: 22),
+            onPressed: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => const GamesListScreen(initialTab: 1)));
+              _loadGames();
+            },
+          ),
+          IconButton(
+            tooltip: 'تحديث',
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              _loadRuns();
+              _loadGames();
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabs,
+          isScrollable: true,
           indicatorColor: Pal.lime,
           labelColor: Pal.lime,
           unselectedLabelColor: Colors.white70,
-          tabs: const [Tab(text: 'استيراد لعبة'), Tab(text: 'اكتشاف'), Tab(text: 'السجل')],
+          tabs: [
+            const Tab(text: 'استيراد لعبة'),
+            const Tab(text: 'اكتشاف'),
+            const Tab(text: 'السجل'),
+            _gTab('للمراجعة', _pending),
+            _gTab('الألعاب', _games),
+          ],
         ),
       ),
-      body: TabBarView(controller: _tabs, children: [_runTab(), DiscoverTab(onStarted: () => _loadRuns(silent: true)), _logTab()]),
+      floatingActionButton: _tabs.index >= 3
+          ? FloatingActionButton(
+              onPressed: () async {
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => const GameFormScreen()));
+                _loadGames();
+              },
+              child: const Icon(Icons.add),
+            )
+          : null,
+      body: TabBarView(controller: _tabs, children: [
+        _runTab(),
+        DiscoverTab(onStarted: () => _loadRuns(silent: true)),
+        _logTab(),
+        _gPane(2),
+        _gPane(0),
+      ]),
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'actions_api.dart';
 import 'discover_api.dart';
+import 'queue_api.dart';
 import 'github.dart';
 import 'theme.dart';
 import 'ui.dart';
@@ -61,6 +62,10 @@ class _RejectedScreenState extends State<RejectedScreen> {
         'سيُرسل ${_sel.length} مستودعاً إلى طابور الاستيراد (واحداً بعد الآخر على خادم GitHub) بأحدث أدوات المعالجة. '
             'ما ينجح يُحذف تلقائياً من هذه القائمة، وما يُرفض يبقى فيها بسبب جديد.',
         ok: 'أرسل للطابور')) return;
+    if (await QueueApi.hasPending()) {
+      if (mounted) toast(context, 'يوجد طابور آخر بانتظار البدء؛ انتظر حتى يبدأ ثم أرسل (وإلا يُلغى الأقدم).', error: true);
+      return;
+    }
     setState(() => _busy = true);
     try {
       await ActionsApi.dispatch('import-queue.yml', {
