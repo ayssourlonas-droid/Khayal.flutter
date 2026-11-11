@@ -272,9 +272,10 @@ class _GamesPaneState extends State<GamesPane> with AutomaticKeepAliveClientMixi
     final poster = '${main['poster_url'] ?? ''}';
     final why = validateGame(g);
     final badge = SeenGames.badge(g);
+    final rej = SeenGames.rejection(g);
     return Card(
       color: Pal.surface,
-      shape: Pal.cardShape(why.isNotEmpty ? Pal.warn : (badge != null ? Pal.lime : null)),
+      shape: Pal.cardShape(rej != null ? Pal.bad : (why.isNotEmpty ? Pal.warn : (badge != null ? Pal.lime : null))),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       child: ListTile(
         leading: ClipRRect(
@@ -305,12 +306,29 @@ class _GamesPaneState extends State<GamesPane> with AutomaticKeepAliveClientMixi
             ),
           ],
         ]),
-        subtitle: Text(
-          '#${g['id']} · ★ ${main['app_rating'] ?? 0} · ${g['release_year'] ?? ''} · ${d['license'] ?? '-'}'
-          '${why.isEmpty ? '' : '\n⚠️ $why'}',
-          style: TextStyle(color: why.isEmpty ? null : Pal.warn),
-        ),
-        isThreeLine: why.isNotEmpty,
+        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            '#${g['id']} · ★ ${main['app_rating'] ?? 0} · ${g['release_year'] ?? ''} · ${d['license'] ?? '-'}'
+            '${why.isEmpty ? '' : '\n⚠️ $why'}',
+            style: TextStyle(color: why.isEmpty ? null : Pal.warn),
+          ),
+          if (rej != null)
+            Container(
+              margin: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Pal.bad.withOpacity(0.14),
+                border: Border.all(color: Pal.bad),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '⛔ رُفضت عند آخر إعادة استيراد، وما زالت ظاهرة بنسختها القديمة.'
+                '${rej.isEmpty ? '' : '\nالسبب: $rej'}',
+                style: const TextStyle(color: Pal.bad, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+        ]),
+        isThreeLine: why.isNotEmpty || rej != null,
         trailing: widget.tab == 2
             ? Row(mainAxisSize: MainAxisSize.min, children: [
                 IconButton(

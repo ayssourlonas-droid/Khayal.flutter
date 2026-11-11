@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'discover_api.dart';
+import 'github.dart';
 
 /// علامة «جديدة / معادة» على الألعاب التي لم تُفتح بعد استيرادها.
 /// الاستيراد يكتب في سجل اللعبة `imported_at` (أول استيراد) و`reimported_at` (كل إعادة استيراد)،
@@ -22,6 +24,43 @@ class SeenGames {
       }
     } catch (_) {}
     ready = true;
+    await _loadRejected();
+  }
+
+  // ── تنبيه «رُفضت عند آخر إعادة استيراد» ──
+  // فشل فحص إعادة الاستيراد يسجّل الرابط في قائمة المرفوضة دون أن يمسّ اللعبة المنشورة.
+  // فإن وُجد رابط مصدر اللعبة في تلك القائمة فهذا يعني أن آخر محاولة استيراد لها رُفضت.
+  // وتُحذف من القائمة تلقائياً عند أول استيراد ناجح لها.
+  static Map<String, String> _rej = {};
+
+  static String _norm(String u) {
+    var x = u.trim().toLowerCase();
+    while (x.endsWith('/')) {
+      x = x.substring(0, x.length - 1);
+    }
+    return x.endsWith('.git') ? x.substring(0, x.length - 4) : x;
+  }
+
+  static Future<void> _loadRejected() async {
+    try {
+      final f = await Github.getJson(DiscoverApi.rejectedFile);
+      final m = <String, String>{};
+      for (final e in Github.asList(f.data)) {
+        final u = _norm('${e['url'] ?? ''}');
+        if (u.isNotEmpty) m[u] = '${e['reason'] ?? ''}'.trim();
+      }
+      _rej = m;
+    } catch (_) {
+      // تعذّر التحميل: لا تنبيه (لا نُظهر معلومة غير مؤكدة)
+    }
+  }
+
+  /// سبب الرفض لو كانت آخر محاولة استيراد لهذه اللعبة مرفوضة، وإلا null.
+  static String? rejection(Map g) {
+    final d = g['details_scene'];
+    if (d is! Map) return null;
+    final u = _norm('${d['source_url'] ?? ''}');
+    return u.isEmpty ? null : _rej[u];
   }
 
   static String _sig(Map g) => '${g['reimported_at'] ?? g['imported_at'] ?? ''}';
