@@ -43,6 +43,8 @@ class Config {
   static const childDirected = false;
   static const realRewardedId = 'ca-app-pub-2993097916011860/1023750041';
   static const rewardPoints = 1;
+  /// نقاط مجانية تُمنح مرة واحدة عند أول تشغيل بعد التثبيت.
+  static const welcomePoints = 5;
   static const retryBaseSeconds = 15.0;
   static const retryMaxSeconds = 120.0;
 }

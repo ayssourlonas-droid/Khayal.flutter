@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'config.dart';
 
 /// يقابل PlayerPoints.gd — نقاط اللاعب (تُحفظ بين الجلسات).
 class PlayerPoints extends ChangeNotifier {
@@ -13,7 +14,14 @@ class PlayerPoints extends ChangeNotifier {
   Future<void> load() async {
     try {
       final p = await SharedPreferences.getInstance();
-      _points = p.getInt(_key) ?? 0;
+      final saved = p.getInt(_key);
+      if (saved == null) {
+        // أول تشغيل بعد التثبيت: هدية ترحيبية تُمنح مرة واحدة فقط
+        _points = Config.welcomePoints;
+        await p.setInt(_key, _points);
+      } else {
+        _points = saved;
+      }
     } catch (_) {
       _points = 0;
     }
