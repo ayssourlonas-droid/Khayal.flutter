@@ -45,6 +45,8 @@ class Config {
   static const rewardPoints = 1;
   /// نقاط مجانية تُمنح مرة واحدة عند أول تشغيل بعد التثبيت.
   static const welcomePoints = 5;
+  /// نقاط مجانية تُضاف مرة واحدة كل يوم (عند أول فتح للتطبيق في ذلك اليوم).
+  static const dailyPoints = 3;
   static const retryBaseSeconds = 15.0;
   static const retryMaxSeconds = 120.0;
 }
