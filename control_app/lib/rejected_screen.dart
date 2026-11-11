@@ -19,6 +19,7 @@ class _RejectedScreenState extends State<RejectedScreen> {
   List<Map<String, dynamic>> _items = [];
   final Set<String> _sel = {};
   String _q = '';
+  String _cat = ''; // تصنيف السبب المحدد للتصفية ('' = الكل)
   bool _loading = true;
   bool _busy = false;
 
@@ -44,10 +45,33 @@ class _RejectedScreenState extends State<RejectedScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
+  /// تصنيف تقريبي لسبب الرفض بالكلمات المفتاحية (النص حرّ، فالتصنيف للمراجعة السريعة فقط).
+  static String _category(Map e) {
+    final r = '${e['reason'] ?? ''}'.toLowerCase();
+    if (r.contains('ليست لعبة') || r.contains('لا تستقبل أي إدخال')) return 'ليست لعبة';
+    if (r.contains('رخص') || r.contains('license') || r.contains('gpl')) return 'رخصة';
+    if (r.contains('فارغ') || r.contains('لا تعمل') || r.contains('خطأ') || r.contains('404')) return 'لا تعمل / فارغة';
+    if (r.contains('خادم') || r.contains('backend') || r.contains('server') || r.contains('بناء') || r.contains('build')) return 'تحتاج خادماً أو بناءً';
+    if (r.contains('حجم') || r.contains('كبير') || r.contains('mb')) return 'حجم';
+    if (r.contains('مكرر')) return 'مكررة';
+    return 'أخرى';
+  }
+
+  Map<String, int> get _cats {
+    final m = <String, int>{};
+    for (final e in _items) {
+      final c = _category(e);
+      m[c] = (m[c] ?? 0) + 1;
+    }
+    return m;
+  }
+
   List<Map<String, dynamic>> get _shown {
     final q = _q.trim().toLowerCase();
-    if (q.isEmpty) return _items;
-    return _items.where((e) => '${e['repo']} ${e['reason']}'.toLowerCase().contains(q)).toList();
+    return _items.where((e) {
+      if (_cat.isNotEmpty && _category(e) != _cat) return false;
+      return q.isEmpty || '${e['repo']} ${e['reason']}'.toLowerCase().contains(q);
+    }).toList();
   }
 
   Future<void> _retry() async {
@@ -120,6 +144,25 @@ class _RejectedScreenState extends State<RejectedScreen> {
             decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'ابحث بالاسم أو بالسبب'),
           ),
         ),
+        if (_items.isNotEmpty)
+          SizedBox(
+            height: 42,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                for (final c in (_cats.entries.toList()..sort((a, b) => b.value.compareTo(a.value))))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+                    child: ChoiceChip(
+                      label: Text('${c.key} (${c.value})'),
+                      selected: _cat == c.key,
+                      onSelected: (v) => setState(() => _cat = v ? c.key : ''),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         if (_loading) const LinearProgressIndicator(),
         Expanded(
           child: list.isEmpty && !_loading
