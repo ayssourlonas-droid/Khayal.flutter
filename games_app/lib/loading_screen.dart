@@ -7,6 +7,7 @@ import 'ads_manager.dart';
 import 'colors.dart';
 import 'data_repository.dart';
 import 'device_ping.dart';
+import 'error_reporter.dart';
 import 'player_points.dart';
 import 'design.dart';
 import 'nav.dart';
@@ -63,7 +64,10 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
     await PlayerPoints.instance.load();
     _real = 30;
     AdsManager.instance.init(); // لا ننتظره: التهيئة تجري بالخلفية
-    Future.delayed(const Duration(seconds: 5), DevicePing.run); // عدّاد أجهزة مجهول (مرة يومياً)
+    Future.delayed(const Duration(seconds: 5), () async {
+      await DevicePing.run(); // عدّاد أجهزة مجهول (مرة يومياً) ويُنشئ المعرّف العشوائي
+      await ErrorReporter.flush(); // يرسل ما تراكم من بلاغات الأخطاء
+    });
     _real = 60;
     try {
       await DataRepository.load('movie', (g, {required fromNetwork}) {})

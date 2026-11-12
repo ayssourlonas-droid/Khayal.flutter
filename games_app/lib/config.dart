@@ -47,6 +47,8 @@ class Config {
   static const welcomePoints = 5;
   /// نقاط مجانية تُضاف مرة واحدة كل يوم (عند أول فتح للتطبيق في ذلك اليوم).
   static const dailyPoints = 3;
+  /// سقف الرصيد للنقاط اليومية: لا تُضاف إن بلغ الرصيد هذا الحد (ولا تتجاوزه). نقاط مشاهدة الإعلانات غير مقيّدة بهذا السقف.
+  static const dailyCap = 10;
   static const retryBaseSeconds = 15.0;
   static const retryMaxSeconds = 120.0;
 }

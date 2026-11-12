@@ -31,9 +31,12 @@ class PlayerPoints extends ChangeNotifier {
         await p.setString(_dayKey, today);
       } else {
         _points = saved;
-        // نقاط يومية: مرة واحدة لكل يوم جديد. نقارن النص (yyyy-mm-dd) فلا يكفي إرجاع ساعة الهاتف للحصول عليها مجدداً.
+        // نقاط يومية: مرة واحدة لكل يوم جديد، ولا ترفع الرصيد فوق Config.dailyCap. نقارن النص (yyyy-mm-dd) فلا يكفي إرجاع ساعة الهاتف للحصول عليها مجدداً.
         if (lastDay == null || today.compareTo(lastDay) > 0) {
-          _points += Config.dailyPoints;
+          if (_points < Config.dailyCap) {
+            final n = _points + Config.dailyPoints;
+            _points = n > Config.dailyCap ? Config.dailyCap : n;
+          }
           await p.setString(_dayKey, today);
         }
       }

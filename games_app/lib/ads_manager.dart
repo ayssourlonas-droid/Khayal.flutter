@@ -122,6 +122,26 @@ class AdsManager extends ChangeNotifier {
     )..load();
   }
 
+  /// بانر مستقل لشاشة أخرى (إعلان البانر الرئيسي لا يُعرض إلا في ودجت واحد في الوقت نفسه).
+  /// يرجع null إن لم تكن الإعلانات جاهزة؛ المستدعي يتخلّص منه بـ dispose().
+  BannerAd? createExtraBanner({required VoidCallback onLoaded}) {
+    if (!_sdkReady) return null;
+    final unit = _unit(Config.testBannerId, Config.realBannerId);
+    if (unit.isEmpty) return null;
+    return BannerAd(
+      adUnitId: unit,
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (_) => onLoaded(),
+        onAdFailedToLoad: (ad, err) {
+          debugPrint('[Ads] فشل بانر الإعدادات: ${err.message}');
+          ad.dispose();
+        },
+      ),
+    )..load();
+  }
+
   // ───── إعلان بيني عند دخول لعبة ─────
   void _loadInterstitial() {
     if (!_sdkReady || _loadingInterstitial || _interstitial != null || !Config.interstitialOnEnter) return;

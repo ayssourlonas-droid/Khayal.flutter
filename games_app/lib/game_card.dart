@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app_state.dart';
 import 'colors.dart';
+import 'favorites.dart';
 import 'glow_button.dart';
 import 'net_loader.dart';
 import 'rating_bar.dart';
@@ -124,6 +125,12 @@ class _GameCardState extends State<GameCard> {
                               },
                               child: const SizedBox.expand(),
                             ),
+                          ),
+                          // نجمة المفضلة (تُضغط وحدها دون فتح اللعبة)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: FavStar(id: (widget.game['id'] ?? '').toString(), size: 60),
                           ),
                         ],
                       ),

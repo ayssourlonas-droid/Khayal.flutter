@@ -16,7 +16,9 @@ import 'config.dart';
 import 'data_repository.dart';
 import 'alert_popup.dart';
 import 'design.dart';
+import 'favorites.dart';
 import 'game_card.dart';
+import 'home_feed.dart';
 import 'glow_button.dart';
 import 'nav.dart';
 import 'net_loader.dart';
@@ -264,6 +266,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void _openDetails(Map<String, dynamic> game, Uint8List? poster) {
     AppState.currentGame = game;
     AppState.lastWatchedGame = game;
+    Favorites.instance.setLast((game['id'] ?? '').toString()); // يُحفظ للجلسات القادمة
     AppState.currentPoster = poster;
     AppState.lastPosterBytes = poster;
     final bg = (game['details_scene'] is Map ? game['details_scene']['background_url'] : null) ?? '';
@@ -592,29 +595,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         child: SizedBox(width: w, height: h, child: Image.asset(asset, fit: BoxFit.contain)),
       );
 
-  // صفحة الرئيسية: صف "تابع اللعب"
+  // صفحة الرئيسية: تابع اللعب ← المفضلة ← لعبة اليوم والاقتراحات
   Widget _homePage() {
-    final g = AppState.lastWatchedGame;
     return SizedBox(
       width: 1080,
       child: SingleChildScrollView(
         controller: _homeScroll,
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-        child: g == null
-            ? const SizedBox(height: 10)
-            : Align(
-                alignment: Alignment.topRight,
-                child: GameCard(
-                  key: ValueKey('last_${g['id']}'),
-                  game: g,
-                  posterBytes: AppState.lastPosterBytes,
-                  onTap: (game, poster) {
-                    AppState.currentGame = game;
-                    AppState.currentPoster = poster ?? AppState.lastPosterBytes;
-                    _push(const DetailsScreen());
-                  },
-                ),
-              ),
+        child: HomeFeed(
+          games: _games,
+          fallbackLast: AppState.lastWatchedGame,
+          onOpen: _openDetails,
+          onTag: (t) {
+            // الكلمة المقترحة تفتح صفحة الألعاب مصفّاة بها
+            setState(() {
+              _tagFilter = t;
+              _query = '';
+              _searchCtl.clear();
+              _shown = _batch;
+            });
+            if (_gridScroll.hasClients) _gridScroll.jumpTo(0);
+            _movePage(1);
+          },
+        ),
       ),
     );
   }
