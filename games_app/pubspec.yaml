@@ -16,6 +16,7 @@ dependencies:
   url_launcher: ^6.3.0
   package_info_plus: ^8.0.2
   http: ^1.2.2
+  device_info_plus: ^10.1.2
 
 dev_dependencies:
   flutter_test:
@@ -25,6 +26,15 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: Tajawal
+      fonts:
+        - asset: assets/fonts/Tajawal-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Tajawal-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Tajawal-ExtraBold.ttf
+          weight: 800
   assets:
     - assets/images/
     - assets/audio/
