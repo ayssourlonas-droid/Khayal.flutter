@@ -4,6 +4,7 @@ import 'theme.dart';
 import 'games_hub_screen.dart';
 import 'server_screen.dart';
 import 'settings_screen.dart';
+import 'errors_screen.dart';
 import 'stats_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -163,6 +164,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const [Color(0xFF7B1FA2), Color(0xFFFF9800)], () => _go(const GamesHubScreen())),
             _tile(Icons.bar_chart, 'إحصاءات اللعب', 'أكثر الألعاب فتحاً (يحتاج Worker)',
                 const [Color(0xFF1565C0), Color(0xFF42A5F5)], () => _go(const StatsScreen())),
+            _tile(Icons.bug_report, 'أخطاء خيال', 'أخطاء تحدث في هواتف اللاعبين: النوع، المكان، الجهاز وأندرويد',
+                const [Color(0xFFB71C1C), Color(0xFFFF7043)], () => _go(const ErrorsScreen())),
             Row(children: [
               Expanded(
                 child: _square(Icons.cloud_upload, 'الإصدار وروابط الدعم', 'version.json ومحرر JSON',
