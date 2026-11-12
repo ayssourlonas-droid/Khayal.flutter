@@ -1,0 +1,52 @@
+name: Check code
+
+# فحص سريع (نحو 2-4 دقائق) لكود التطبيقين عند كل تحديث لأي ملف Dart أو pubspec:
+# flutter analyze يكشف أخطاء الكتابة والاستيراد والأنواع قبل البناء الكامل (لا يبني APK).
+# الفشل = يوجد خطأ (error) حقيقي؛ التحذيرات والملاحظات (warning/info) تُعرض ولا تُفشل الفحص.
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "games_app/lib/**"
+      - "games_app/pubspec.yaml"
+      - "control_app/lib/**"
+      - "control_app/pubspec.yaml"
+      - ".github/workflows/check.yml"
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [games_app, control_app]
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.27.4"
+          channel: stable
+          cache: true
+      - name: Get packages
+        run: flutter pub get
+      - name: Analyze
+        run: |
+          set -o pipefail
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee analyze.txt
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### ${{ matrix.app }}"
+            n=$(grep -cE '^\s*error ' analyze.txt 2>/dev/null || true)
+            w=$(grep -cE '^\s*warning ' analyze.txt 2>/dev/null || true)
+            echo "أخطاء: ${n:-0} | تحذيرات: ${w:-0}"
+            echo '```'
+            grep -E '^\s*(error|warning) ' analyze.txt 2>/dev/null | head -40 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
