@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'store.dart';
 import 'theme.dart';
+import 'fonts_screen.dart';
 import 'games_hub_screen.dart';
 import 'server_screen.dart';
 import 'settings_screen.dart';
@@ -166,6 +167,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const [Color(0xFF1565C0), Color(0xFF42A5F5)], () => _go(const StatsScreen())),
             _tile(Icons.bug_report, 'أخطاء خيال', 'أخطاء تحدث في هواتف اللاعبين: النوع، المكان، الجهاز وأندرويد',
                 const [Color(0xFFB71C1C), Color(0xFFFF7043)], () => _go(const ErrorsScreen())),
+            _tile(Icons.font_download, 'الخطوط', 'تضمين محلي واستبدال حسب نوع اللعبة',
+                const [Color(0xFF6A1B9A), Color(0xFFB34DE6)], () => _go(const FontsScreen())),
             Row(children: [
               Expanded(
                 child: _square(Icons.cloud_upload, 'الإصدار وروابط الدعم', 'version.json ومحرر JSON',
