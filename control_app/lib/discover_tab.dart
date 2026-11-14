@@ -203,6 +203,7 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
       const Text('يبحث في GitHub عن ألعاب برخص مسموحة. الفحص النهائي للرخصة يتم عند الاستيراد، وكل لعبة تذهب إلى «للمراجعة».',
           style: TextStyle(fontSize: 12, color: Colors.white60)),
       const SizedBox(height: 10),
+      sectionHeader('البحث في GitHub', Icons.travel_explore, Pal.info),
       field(nameCtl, 'اسم اللعبة (اختياري: إن تُرك فارغاً يبحث بالتصنيف)'),
       DropdownButtonFormField<String>(
         value: topic,
@@ -240,12 +241,14 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
         subtitle: const Text('مطفأ: يتجاهلها البحث', style: TextStyle(fontSize: 11)),
       ),
       OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(foregroundColor: Pal.warn, side: BorderSide(color: Pal.warn.withOpacity(0.6))),
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RejectedScreen())),
         icon: const Icon(Icons.block),
         label: const Padding(padding: EdgeInsets.all(8), child: Text('قائمة المستودعات المرفوضة (للعودة إليها لاحقاً)')),
       ),
       const SizedBox(height: 6),
       FilledButton.icon(
+        style: infoStyle,
         onPressed: _searching || _running ? null : _search,
         icon: const Icon(Icons.search),
         label: const Padding(padding: EdgeInsets.all(10), child: Text('ابحث')),
@@ -261,11 +264,13 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
           ),
         ),
       if (_results.isNotEmpty) ...[
-        const Divider(height: 28),
+        const SizedBox(height: 14),
+        sectionHeader('النتائج', Icons.list_alt, Pal.purple),
         Text('النتائج (${_results.length}) — أُخفيت ${_hidden.length} نسخة مكررة محتملة${_rejHidden > 0 ? ' و$_rejHidden مرفوضة سابقاً' : ''}', style: const TextStyle(fontWeight: FontWeight.bold)),
         _selectBar(),
         for (final r in _results) _tile(r),
-        const Divider(height: 28),
+        const SizedBox(height: 14),
+        sectionHeader('إعدادات الاستيراد', Icons.download_for_offline, Pal.ok),
         DropdownButtonFormField<String>(
           value: orientation,
           decoration: const InputDecoration(labelText: 'اتجاه الشاشة للمحدد'),
@@ -279,6 +284,7 @@ class _DiscoverTabState extends State<DiscoverTab> with AutomaticKeepAliveClient
         SwitchListTile(value: media, onChanged: (v) => setState(() => media = v), title: const Text('تحسين الوسائط')),
         SwitchListTile(value: aiTest, onChanged: (v) => setState(() => aiTest = v), title: const Text('اختبار بالذكاء الاصطناعي')),
         FilledButton.icon(
+          style: goStyle,
           onPressed: canStart ? _startQueue : null,
           icon: const Icon(Icons.playlist_play),
           label: Padding(padding: const EdgeInsets.all(12), child: Text('استورد المحدد (${_selected.length}) واحدة بعد أخرى')),

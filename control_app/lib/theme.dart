@@ -12,6 +12,8 @@ class Pal {
   static const ok = Color(0xFF3DDC84);
   static const warn = Color(0xFFFFB74D);
   static const bad = Color(0xFFFF4D4D);
+  static const info = Color(0xFF29B6F6);
+  static const teal = Color(0xFF26C6DA);
 
   static const headerGradient = LinearGradient(
     begin: Alignment.topRight,
@@ -73,6 +75,21 @@ ThemeData buildTheme() {
         side: BorderSide(color: Pal.purple.withOpacity(0.6)),
         shape: RoundedRectangleBorder(borderRadius: radius),
       ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Pal.ok : Colors.white54),
+      trackColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? Pal.ok.withOpacity(0.35) : Colors.white12),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Pal.purple : null),
+    ),
+    dividerTheme: DividerThemeData(color: Pal.purple.withOpacity(0.25), thickness: 1),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: Pal.surface2,
+      contentTextStyle: const TextStyle(color: Colors.white),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: Pal.lime,

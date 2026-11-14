@@ -84,7 +84,7 @@ class _StatsScreenState extends State<StatsScreen> {
     return [
       Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text('الأجهزة ($_period)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        child: sectionHeader('الأجهزة ($_period)', Icons.devices, Pal.teal),
       ),
       Row(children: [
         _tile('أجهزة نشطة', d.active, Pal.purple),

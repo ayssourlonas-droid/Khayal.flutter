@@ -174,7 +174,7 @@ class _VersionTabState extends State<_VersionTab> {
       Row(children: [
         Expanded(child: OutlinedButton(onPressed: _busy ? null : _load, child: const Text('إعادة تحميل'))),
         const SizedBox(width: 10),
-        Expanded(child: FilledButton(onPressed: _busy ? null : _save, child: const Text('رفع'))),
+        Expanded(child: FilledButton(style: goStyle, onPressed: _busy ? null : _save, child: const Text('رفع'))),
       ]),
     ]);
   }

@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'actions_api.dart';
-import 'cloudinary.dart';
 import 'consts.dart';
 import 'github.dart';
 import 'license_checker.dart';
 import 'store.dart';
 import 'theme.dart';
+import 'image_editor_screen.dart';
 import 'image_field.dart';
 import 'ui.dart';
 import 'test_play_screen.dart';
@@ -164,28 +164,35 @@ class _GameFormScreenState extends State<GameFormScreen> {
     if (mounted) setState(() => _busy = false);
   }
 
-  Future<void> _genBackground() async {
-    final c = cover.text.trim();
-    if (c.isEmpty) {
+  /// يفتح محرر الغلاف على شاشة رسم إزالة النصوص (Cloudinary). عند الاعتماد: يُستبدل رابط الغلاف بالنسخة النظيفة،
+  /// والخلفية الضبابية تُولَّد من الصورة النظيفة (حتى لا يظهر أثر النص ولو ضبابياً) عبر Action بلا Cloudinary.
+  Future<void> _removeText() async {
+    final orig = cover.text.trim();
+    if (orig.isEmpty) {
       toast(context, 'ضع صورة الغلاف أولاً', error: true);
       return;
     }
-    setState(() => _busy = true);
-    try {
-      var p = Cloudinary.parseUrl(c);
-      if (p == null || p.cloud != Store.clCloud) {
-        final up = await Cloudinary.uploadRemote(c);
-        p = (cloud: Store.clCloud, publicId: up.publicId);
+    final out = await Navigator.push<String>(
+        context, MaterialPageRoute(builder: (_) => ImageEditorScreen(url: orig, startDrawing: true)));
+    if (out == null || !mounted) return;
+    setState(() => cover.text = out);
+    _changed();
+    toast(context, 'تم اعتماد الغلاف المنظّف ✓');
+    final gid = id.text.trim();
+    // نعيد توليدها إن كانت فارغة أو مولَّدة آلياً سابقاً (bg/<id>.webp)؛ الخلفية التي رفعتها يدوياً لا تُمسّ.
+    final b = bg.text.trim();
+    if ((b.isEmpty || b.contains('/bg/')) && int.tryParse(gid) != null && int.parse(gid) > 0 && out.startsWith('https://')) {
+      try {
+        await ActionsApi.dispatch('make-bg.yml', {'game_id': gid, 'cover_url': out});
+        final u = Uri.tryParse(play.text.trim());
+        final origin = (u != null && u.hasScheme && u.host.isNotEmpty) ? '${u.scheme}://${u.host}' : 'https://khayal-control.pages.dev';
+        setState(() => bg.text = '$origin/bg/$gid.webp');
+        _changed();
+        if (mounted) toast(context, 'بدأ توليد الخلفية الضبابية من الغلاف النظيف (دقيقة أو دقيقتان)');
+      } catch (e) {
+        if (mounted) toast(context, 'تعذّر بدء الخلفية: $e', error: true);
       }
-      final src = Cloudinary.buildUrl(p.cloud, p.publicId, Cloudinary.blurredBackground);
-      final out = await Cloudinary.uploadRemote(src);
-      setState(() => bg.text = out.url);
-      _changed();
-      if (mounted) toast(context, 'تم توليد الخلفية الضبابية ✓');
-    } catch (e) {
-      if (mounted) toast(context, '$e', error: true);
     }
-    if (mounted) setState(() => _busy = false);
   }
 
   Future<void> _save() async {
@@ -291,6 +298,8 @@ class _GameFormScreenState extends State<GameFormScreen> {
     _nextId();
   }
 
+  Widget _section(String title, IconData icon, Color c) => sectionHeader(title, icon, c);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -306,6 +315,7 @@ class _GameFormScreenState extends State<GameFormScreen> {
         child: ListView(padding: const EdgeInsets.all(14), children: [
           if (_busy) const LinearProgressIndicator(),
           if (_status.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(_status, style: const TextStyle(color: Pal.warn))),
+          _section('بيانات اللعبة', Icons.sports_esports, Pal.purple),
           Row(children: [
             SizedBox(
               width: 90,
@@ -328,18 +338,31 @@ class _GameFormScreenState extends State<GameFormScreen> {
           ]),
           field(tags, 'التصنيفات (puzzle, arcade, racing ...)', onChanged: _changed),
           field(desc, 'الوصف', lines: 4, onChanged: _changed),
-          ImageField(label: 'صورة الغلاف *', controller: cover, onChanged: _changed),
-          ImageField(label: 'صورة الخلفية', controller: bg, onChanged: _changed, previewHeight: 120),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-                onPressed: _genBackground, icon: const Icon(Icons.blur_on), label: const Text('ولّد خلفية ضبابية من الغلاف')),
+          _section('الصور', Icons.photo_library, const Color(0xFF29B6F6)),
+          // الغلاف والخلفية جنباً إلى جنب، بمعاينة كاملة بلا قص
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+                child: ImageField(
+                    label: 'الغلاف *', controller: cover, onChanged: _changed, aspect: 470 / 700, accent: Pal.purple)),
+            const SizedBox(width: 10),
+            Expanded(
+                child: ImageField(
+                    label: 'الخلفية', controller: bg, onChanged: _changed, aspect: 1080 / 1920, accent: const Color(0xFF26C6DA))),
+          ]),
+          const SizedBox(height: 8),
+          FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(foregroundColor: Pal.warn),
+            onPressed: _removeText,
+            icon: const Icon(Icons.draw),
+            label: const Text('إزالة نصوص من الغلاف (ارسم)'),
           ),
-          const Divider(height: 30),
+          const SizedBox(height: 14),
+          _section('التشغيل', Icons.play_circle, Pal.ok),
           field(play, 'رابط اللعبة (https://.../index.html)', type: TextInputType.url, onChanged: _changed),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: goStyle.copyWith(padding: const WidgetStatePropertyAll(EdgeInsets.all(14))),
               onPressed: () {
                 final u = play.text.trim();
                 if (!u.startsWith('https://')) {
@@ -348,12 +371,12 @@ class _GameFormScreenState extends State<GameFormScreen> {
                 }
                 Navigator.push(context, MaterialPageRoute(builder: (_) => TestPlayScreen(url: u)));
               },
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('جرّب اللعبة'),
+              icon: const Icon(Icons.play_arrow, size: 26),
+              label: const Text('جرّب اللعبة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
-          const Text('الرخصة والمصدر', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Pal.lime)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 18),
+          _section('الرخصة والمصدر', Icons.verified_user, Pal.lime),
           field(source, 'رابط المصدر (مستودع GitHub أو صفحة اللعبة)', type: TextInputType.url, onChanged: _changed),
           FilledButton.tonalIcon(
               onPressed: _checkLicense, icon: const Icon(Icons.verified_user), label: const Text('فحص الرخصة تلقائياً')),
@@ -392,6 +415,7 @@ class _GameFormScreenState extends State<GameFormScreen> {
           ),
           const SizedBox(height: 10),
           FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Pal.magenta, foregroundColor: Colors.white),
             onPressed: _busy ? null : _save,
             icon: const Icon(Icons.cloud_upload),
             label: Padding(padding: const EdgeInsets.all(12), child: Text(widget.fromPending ? 'اعتماد ونشر للاعبين' : 'رفع إلى GitHub')),

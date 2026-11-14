@@ -332,14 +332,7 @@ class _ActionsScreenState extends State<ActionsScreen> with TickerProviderStateM
     );
   }
 
-  Widget _section(String t, IconData i) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Row(children: [
-          Icon(i, color: Pal.lime),
-          const SizedBox(width: 8),
-          Text(t, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Pal.lime)),
-        ]),
-      );
+  Widget _section(String t, IconData i) => sectionHeader(t, i, Pal.info);
 
   // ───────────── تبويب السجل ─────────────
   /// 0 = مرفوضة، 1 = تحذيرات، 2 = نجحت، 3 = ملغاة (قسم سفلي)، -1 = قيد التشغيل/لم تُقرأ نتيجتها بعد

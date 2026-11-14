@@ -157,7 +157,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
               ]),
               const SizedBox(height: 16),
               if (arts.isNotEmpty) ...[
-                const Text('الملفات الناتجة', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Pal.lime)),
+                sectionHeader('الملفات الناتجة', Icons.inventory_2, Pal.ok),
                 for (final a in arts)
                   Card(
                     color: Pal.surface,
@@ -175,7 +175,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                 ),
                 const SizedBox(height: 10),
               ],
-              const Text('المراحل', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Pal.lime)),
+              sectionHeader('المراحل', Icons.timeline, Pal.info),
               for (final j in jobs) _job(j),
             ]),
     );

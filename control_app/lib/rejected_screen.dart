@@ -201,6 +201,7 @@ class _RejectedScreenState extends State<RejectedScreen> {
           child: Row(children: [
             Expanded(
               child: FilledButton.icon(
+                style: goStyle,
                 onPressed: _busy || _sel.isEmpty ? null : _retry,
                 icon: const Icon(Icons.replay),
                 label: Text('أعد محاولة المحدد (${_sel.length})'),
@@ -208,6 +209,7 @@ class _RejectedScreenState extends State<RejectedScreen> {
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: Pal.bad, side: BorderSide(color: Pal.bad.withOpacity(0.6))),
               onPressed: _busy || _sel.isEmpty ? null : _remove,
               icon: const Icon(Icons.delete_outline),
               label: const Text('حذف'),

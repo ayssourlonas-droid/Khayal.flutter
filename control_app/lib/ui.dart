@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'theme.dart';
 
 void toast(BuildContext c, String msg, {bool error = false}) {
   ScaffoldMessenger.of(c)
@@ -40,3 +41,24 @@ Widget field(TextEditingController c, String label,
     ),
   );
 }
+
+/// عنوان قسم موحّد في كل شاشات التطبيق: أيقونة ملونة + عنوان + خط رفيع بنفس اللون.
+Widget sectionHeader(String title, IconData icon, Color c) => Padding(
+      padding: const EdgeInsets.fromLTRB(0, 6, 0, 10),
+      child: Row(children: [
+        Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(color: c.withOpacity(0.18), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 18, color: c)),
+        const SizedBox(width: 8),
+        Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: c)),
+        const SizedBox(width: 10),
+        Expanded(child: Divider(color: c.withOpacity(0.35), thickness: 1)),
+      ]),
+    );
+
+/// زر «تشغيل/تجربة/تنفيذ»: أخضر بنص أسود (اللون الدلالي الموحّد للمتابعة).
+final ButtonStyle goStyle = FilledButton.styleFrom(backgroundColor: Pal.ok, foregroundColor: Colors.black);
+
+/// زر معلومات/بحث: أزرق.
+final ButtonStyle infoStyle = FilledButton.styleFrom(backgroundColor: Pal.info, foregroundColor: Colors.black);

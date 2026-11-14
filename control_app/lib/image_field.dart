@@ -12,12 +12,17 @@ class ImageField extends StatefulWidget {
   final TextEditingController controller;
   final VoidCallback onChanged;
   final double previewHeight;
+  /// نسبة (عرض/ارتفاع) لمعاينة كاملة بلا قص وبشكل مدمج (أزرار أيقونات)؛ عند null يبقى الشكل القديم.
+  final double? aspect;
+  final Color accent;
   const ImageField({
     super.key,
     required this.label,
     required this.controller,
     required this.onChanged,
     this.previewHeight = 160,
+    this.aspect,
+    this.accent = Pal.purple,
   });
 
   @override
@@ -71,6 +76,7 @@ class _ImageFieldState extends State<ImageField> {
   @override
   Widget build(BuildContext context) {
     final url = widget.controller.text.trim();
+    if (widget.aspect != null) return _compact(url);
     return Card(
       color: Pal.surface,
       shape: Pal.cardShape(),
@@ -111,6 +117,65 @@ class _ImageFieldState extends State<ImageField> {
                 },
                 icon: const Icon(Icons.copy),
                 label: const Text('نسخ')),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  Widget _compact(String url) {
+    final a = widget.accent;
+    Widget ic(IconData i, String tip, VoidCallback? f) => IconButton(
+        visualDensity: VisualDensity.compact,
+        iconSize: 20,
+        color: a,
+        tooltip: tip,
+        onPressed: f,
+        icon: Icon(i));
+    return Card(
+      color: Pal.surface,
+      shape: Pal.cardShape(a),
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(widget.label, style: TextStyle(fontWeight: FontWeight.bold, color: a, fontSize: 13)),
+          const SizedBox(height: 6),
+          // معاينة كاملة بلا قص (contain) داخل إطار بنسبة الصورة الفعلية
+          AspectRatio(
+            aspectRatio: widget.aspect!,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: ColoredBox(
+                color: Pal.surface2,
+                child: url.startsWith('http')
+                    ? Image.network(url,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Center(child: Text('تعذّر العرض', style: TextStyle(fontSize: 11))))
+                    : Center(child: Icon(Icons.image_outlined, color: a.withOpacity(0.4), size: 32)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: widget.controller,
+            style: const TextStyle(fontSize: 12),
+            maxLines: 1,
+            onChanged: (_) {
+              widget.onChanged();
+              setState(() {});
+            },
+            decoration: const InputDecoration(hintText: 'https://...', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+          ),
+          if (_busy) const Padding(padding: EdgeInsets.only(top: 4), child: LinearProgressIndicator()),
+          Wrap(alignment: WrapAlignment.center, children: [
+            ic(Icons.upload, 'رفع', _busy ? null : _pick),
+            ic(Icons.tune, 'تحرير', _busy ? null : _edit),
+            ic(Icons.paste, 'لصق', _paste),
+            ic(Icons.copy, 'نسخ', () {
+              Clipboard.setData(ClipboardData(text: widget.controller.text));
+              toast(context, 'تم النسخ');
+            }),
           ]),
         ]),
       ),
