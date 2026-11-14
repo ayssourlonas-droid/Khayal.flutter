@@ -4,11 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'ads_manager.dart';
+import 'config.dart';
+import 'levelplay_ads.dart';
 import 'app_state.dart';
 import 'colors.dart';
 import 'player_points.dart';
 import 'alert_popup.dart';
 import 'design.dart';
+import 'error_reporter.dart';
 import 'glow_button.dart';
 import 'sound_fx.dart';
 
@@ -155,6 +158,23 @@ class SettingsScreen extends StatelessWidget {
   }
 
   // الصف العلوي: رجوع (يمين) — العنوان — النقاط (يسار)
+  /// اختبار سجل الأخطاء (ضغطة مطولة على عنوان «الإعدادات»): يُرسل بلاغاً تجريبياً يظهر في «أخطاء خيال» بالمتحكم.
+  /// لا يعمل إلا في نسخة release (في وضع التطوير السجل معطّل عمداً).
+  Future<void> _errorTest(BuildContext c) async {
+    final r = await showAlertPopup(c,
+        title: 'اختبار سجل الأخطاء',
+        message: 'يُرسَل بلاغ تجريبي يظهر في تبويب «أخطاء خيال» بالمتحكم خلال ثوانٍ.',
+        buttons: const [PopupBtn(' خطأ عميق ', 1), PopupBtn(' رسالة عادية ', 4), PopupBtn(' إلغاء ', 5)]);
+    if (r == 0) {
+      ErrorReporter.forceNext = true;
+      Future<void>.microtask(() {
+        throw StateError('اختبار: خطأ عميق غير ملتقَط');
+      });
+    } else if (r == 1) {
+      ErrorReporter.log('اختبار: رسالة عادية من الإعدادات', level: 'warning', force: true);
+    }
+  }
+
   Widget _topBar(BuildContext ctx) {
     return SizedBox(
       height: 110,
@@ -165,12 +185,16 @@ class SettingsScreen extends StatelessWidget {
             onTap: () => Navigator.of(ctx).maybePop(),
             child: SizedBox(width: 120, height: 70, child: Image.asset('assets/images/a1c.webp', fit: BoxFit.contain)),
           ),
-          const Expanded(
-            child: Text('الإعدادات',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 64, fontWeight: FontWeight.w800, color: Colors.white, shadows: [
-                  Shadow(color: AppColors.cardShadow, blurRadius: 18),
-                ])),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onLongPress: () => _errorTest(ctx), // مخفي: اضغط مطولاً على العنوان
+              child: const Text('الإعدادات',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 64, fontWeight: FontWeight.w800, color: Colors.white, shadows: [
+                    Shadow(color: AppColors.cardShadow, blurRadius: 18),
+                  ])),
+            ),
           ),
           ListenableBuilder(
             listenable: PlayerPoints.instance,
@@ -361,9 +385,13 @@ class _BannerStripState extends State<_BannerStrip> {
       width: double.infinity,
       padding: EdgeInsets.only(top: topInset),
       alignment: Alignment.center,
-      child: (ad == null || !_loaded)
-          ? const SizedBox.shrink()
-          : SizedBox(width: ad.size.width.toDouble(), height: ad.size.height.toDouble(), child: AdWidget(ad: ad)),
+      child: Config.useLevelPlay
+          ? ListenableBuilder(
+              listenable: AdsManager.instance,
+              builder: (_, __) => AdsManager.instance.levelPlayReady ? const LevelPlayBannerSlot() : const SizedBox.shrink())
+          : ((ad == null || !_loaded)
+              ? const SizedBox.shrink()
+              : SizedBox(width: ad.size.width.toDouble(), height: ad.size.height.toDouble(), child: AdWidget(ad: ad))),
     );
   }
 }

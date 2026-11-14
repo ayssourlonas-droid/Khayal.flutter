@@ -25,6 +25,16 @@ class Config {
     'PARTNER',
   ];
 
+  // ── مزوّد الإعلانات ──
+  /// 'levelplay' (Unity LevelPlay) أو 'admob'. كود AdMob باقٍ كما هو للرجوع إليه حين ينشر التطبيق في متجر مدعوم.
+  static const adProvider = 'levelplay';
+  static bool get useLevelPlay => adProvider == 'levelplay';
+  // معرّفات LevelPlay (ليست أسراراً: تُضمَّن في التطبيق نفسه)
+  static const levelPlayAppKey = '29868e4b5';
+  static const lpBannerId = '8ykoywkozkldeeyx';
+  static const lpInterstitialId = 'w6mf02zg9u83ppa3';
+  static const lpRewardedId = '72xho7pshi2tjthn';
+
   // ── AdMob ──
   /// اجعلها false قبل النشر بعد وضع المعرّفات الحقيقية.
   // عدّاد فتح الألعاب (يرسل اسم اللعبة فقط، بلا بيانات شخصية)

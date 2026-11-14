@@ -63,7 +63,7 @@ class ErrorReporter {
 
   static String _stack(StackTrace? st) {
     if (st == null) return '';
-    final lines = st.toString().split('\n').where((l) => l.trim().isNotEmpty).take(8).map((l) => _clean(l.trim(), 160));
+    final lines = st.toString().split('\n').where((l) => l.trim().isNotEmpty && !l.contains('ErrorReporter')).take(8).map((l) => _clean(l.trim(), 160));
     return lines.join('\n');
   }
 
@@ -75,14 +75,28 @@ class ErrorReporter {
     return h.toRadixString(36);
   }
 
-  static Future<void> report(Object error, StackTrace? stack, {bool fatal = false}) async {
-    if (_inside || kDebugMode || Config.statsUrl.trim().isEmpty || _noise(error)) return;
+  /// يجعل البلاغ التالي يتجاوز قاعدة «مرة في اليوم» وحدّ العدد (للزر التجريبي فقط).
+  static bool forceNext = false;
+
+  /// خطأ فعلي (استثناء). fatal = لم يُلتقَط في أي مكان.
+  static Future<void> report(Object error, StackTrace? stack, {bool fatal = false, bool force = false}) async {
+    if (_noise(error)) return;
+    await _submit(_clean(error.runtimeType.toString(), 80), _clean('$error', 300), _stack(stack), fatal, force);
+  }
+
+  /// رسالة عادية كمخرجات Godot: تحذير أو خطأ تعاملتَ معه ولا تريد أن يضيع. level: info | warning | error.
+  /// الاستعمال: `ErrorReporter.log('تعذّر تحميل صورة اللعبة', level: 'warning');`
+  static Future<void> log(String message, {String level = 'warning', bool force = false}) async {
+    await _submit('Log.$level', _clean(message, 300), _stack(StackTrace.current), false, force);
+  }
+
+  static Future<void> _submit(String type, String msg, String st, bool fatal, bool force) async {
+    force = force || forceNext;
+    forceNext = false;
+    if (_inside || kDebugMode || Config.statsUrl.trim().isEmpty) return;
     _inside = true;
     try {
-      final type = _clean(error.runtimeType.toString(), 80);
-      final msg = _clean('$error', 300);
-      final st = _stack(stack);
-      final fp = _hash('$type|${st.split('\n').take(3).join('|')}');
+      final fp = _hash('$type|${st.split('\n').take(3).join('|')}|${st.isEmpty ? msg : ''}');
       final prefs = await SharedPreferences.getInstance();
       final day = DateTime.now().toUtc().toIso8601String().substring(0, 10);
       if (prefs.getString(_kDay) != day) {
@@ -92,9 +106,11 @@ class ErrorReporter {
       }
       final seen = prefs.getStringList(_kSeen) ?? [];
       final count = prefs.getInt(_kCount) ?? 0;
-      if (seen.contains(fp) || count >= _dayCap) return; // نفس الخطأ مرة واحدة في اليوم
-      await prefs.setStringList(_kSeen, [...seen, fp]);
-      await prefs.setInt(_kCount, count + 1);
+      if (!force && (seen.contains(fp) || count >= _dayCap)) return; // نفس الخطأ مرة واحدة في اليوم
+      if (!force) {
+        await prefs.setStringList(_kSeen, [...seen, fp]);
+        await prefs.setInt(_kCount, count + 1);
+      }
 
       var ver = '', android = '', model = '';
       try {

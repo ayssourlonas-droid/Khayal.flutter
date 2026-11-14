@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart' show AdWidget;
 
 import 'ads_manager.dart';
 import 'app_state.dart';
@@ -287,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ListenableBuilder(
             listenable: AdsManager.instance,
             builder: (_, __) {
-              final b = AdsManager.instance.banner;
+              final b = AdsManager.instance.topBannerWidget();
               // الوضع الغامر يخفي شريط الحالة فيمتد المحتوى تحت كاميرا الشاشة؛
               // نترك مساحة سوداء بارتفاع الحافة العلوية (الكاميرا/الشق) فوق البانر.
               final topInset = MediaQuery.of(context).viewPadding.top;
@@ -296,13 +295,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 width: double.infinity,
                 padding: EdgeInsets.only(top: topInset),
                 alignment: Alignment.center,
-                child: b == null
-                    ? const SizedBox.shrink()
-                    : SizedBox(
-                        width: b.size.width.toDouble(),
-                        height: b.size.height.toDouble(),
-                        child: AdWidget(ad: b),
-                      ),
+                child: b ?? const SizedBox.shrink(),
               );
             },
           ),

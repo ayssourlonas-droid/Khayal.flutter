@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'config.dart';
+import 'levelplay_ads.dart';
 import 'player_points.dart';
 
 /// يقابل AdsManager.gd — AdMob الرسمي (موافقة UMP ثم تهيئة ثم بانر + إعلان مكافأة).
@@ -14,6 +16,7 @@ class AdsManager extends ChangeNotifier {
   static final AdsManager instance = AdsManager._();
 
   bool _sdkReady = false;
+  LevelPlayBackend? _lp;
   bool _bannerWanted = false;
   BannerAd? _banner;
   bool _bannerLoaded = false;
@@ -33,7 +36,20 @@ class AdsManager extends ChangeNotifier {
   Stream<void> get onRewardedUnavailable => _rewardedUnavailable.stream;
 
   BannerAd? get banner => _bannerLoaded ? _banner : null;
-  bool get isRewardedReady => _rewarded != null;
+  bool get isRewardedReady => Config.useLevelPlay ? (_lp?.rewardedReady ?? false) : _rewarded != null;
+
+  bool get levelPlayReady => _lp?.initialized ?? false;
+
+  /// ودجت البانر العلوي للشاشة الرئيسية (أو null إن لم يكن هناك إعلان). يخفي الفرق بين المزوّدين.
+  Widget? topBannerWidget() {
+    if (Config.useLevelPlay) {
+      if (!_bannerWanted || !(_lp?.initialized ?? false)) return null;
+      return const LevelPlayBannerSlot();
+    }
+    final b = banner;
+    if (b == null) return null;
+    return SizedBox(width: b.size.width.toDouble(), height: b.size.height.toDouble(), child: AdWidget(ad: b));
+  }
 
   bool get _supported => !kIsWeb && Platform.isAndroid;
 
@@ -67,6 +83,18 @@ class AdsManager extends ChangeNotifier {
   Future<void> _initSdk() async {
     if (_sdkReady) return;
     _sdkReady = true;
+    if (Config.useLevelPlay) {
+      _lp = LevelPlayBackend(
+        onChanged: notifyListeners,
+        onRewarded: _onEarned,
+        onRewardedClosed: () {
+          _rewardedClosed.add(_rewardGranted);
+          notifyListeners();
+        },
+      );
+      await _lp!.init();
+      return;
+    }
     if (Config.childDirected) {
       await MobileAds.instance.updateRequestConfiguration(RequestConfiguration(
           tagForChildDirectedTreatment: TagForChildDirectedTreatment.yes));
@@ -86,7 +114,12 @@ class AdsManager extends ChangeNotifier {
 
   // ───── البانر ─────
   void showTopBanner() {
+    final changed = !_bannerWanted;
     _bannerWanted = true;
+    if (Config.useLevelPlay) {
+      if (changed) scheduleMicrotask(notifyListeners); // البانر نفسه ودجت يحمّل نفسه
+      return;
+    }
     if (_sdkReady && _banner == null) _createBanner();
   }
 
@@ -125,7 +158,7 @@ class AdsManager extends ChangeNotifier {
   /// بانر مستقل لشاشة أخرى (إعلان البانر الرئيسي لا يُعرض إلا في ودجت واحد في الوقت نفسه).
   /// يرجع null إن لم تكن الإعلانات جاهزة؛ المستدعي يتخلّص منه بـ dispose().
   BannerAd? createExtraBanner({required VoidCallback onLoaded}) {
-    if (!_sdkReady) return null;
+    if (!_sdkReady || Config.useLevelPlay) return null;
     final unit = _unit(Config.testBannerId, Config.realBannerId);
     if (unit.isEmpty) return null;
     return BannerAd(
@@ -169,6 +202,15 @@ class AdsManager extends ChangeNotifier {
   /// يعرض إعلاناً بينياً إن كان جاهزاً ومضى الفاصل، ثم ينفّذ [proceed] دائماً (مرة واحدة).
   /// لا ينتظر اللاعب أبداً إن لم يكن الإعلان جاهزاً.
   void showInterstitialThen(void Function() proceed) {
+    if (Config.useLevelPlay) {
+      final lp = _lp;
+      if (lp == null) {
+        proceed();
+      } else {
+        lp.showInterstitialThen(proceed);
+      }
+      return;
+    }
     final ad = _interstitial;
     final gap = DateTime.now().difference(_lastInterstitial).inSeconds;
     if (!Config.interstitialOnEnter || ad == null || gap < Config.interstitialMinGapSeconds) {
@@ -199,6 +241,15 @@ class AdsManager extends ChangeNotifier {
   // ───── إعلان المكافأة ─────
   /// يرجع false (ويطلق onRewardedUnavailable) إن لم يكن جاهزاً.
   bool showRewarded() {
+    if (Config.useLevelPlay) {
+      final lp = _lp;
+      if (lp == null || !lp.rewardedReady) {
+        _rewardedUnavailable.add(null);
+        return false;
+      }
+      _rewardGranted = false;
+      return lp.showRewarded();
+    }
     final ad = _rewarded;
     if (ad == null) {
       _rewardedUnavailable.add(null);
