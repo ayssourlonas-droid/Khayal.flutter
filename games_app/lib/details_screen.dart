@@ -11,6 +11,7 @@ import 'app_state.dart';
 import 'colors.dart';
 import 'data_repository.dart';
 import 'game_library.dart';
+import 'config.dart';
 import 'player_points.dart';
 import 'design.dart';
 import 'glow_button.dart';
@@ -205,7 +206,7 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
       SoundFx.instance.play(Sfx.error);
       return;
     }
-    if (PlayerPoints.instance.usePoint()) {
+    if (!Config.pointsEnabled || PlayerPoints.instance.usePoint()) {
       SoundFx.instance.play(Sfx.confirm);
       AdsManager.instance.showInterstitialThen(() => Nav.push(const GameScreen()));
     } else {

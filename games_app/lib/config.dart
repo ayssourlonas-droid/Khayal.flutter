@@ -27,8 +27,19 @@ class Config {
 
   // ── مزوّد الإعلانات ──
   /// 'levelplay' (Unity LevelPlay) أو 'admob'. كود AdMob باقٍ كما هو للرجوع إليه حين ينشر التطبيق في متجر مدعوم.
-  static const adProvider = 'levelplay';
+  /// 'vast' = إعلان فيديو مباشر (HilltopAds) بلا نقاط | 'levelplay' | 'admob'
+  static const adProvider = 'vast';
+  static bool get useVast => adProvider == 'vast';
   static bool get useLevelPlay => adProvider == 'levelplay';
+  /// نظام النقاط (خصم نقطة لكل لعبة + إعلان المكافأة). false = اللعب مجاني وبلا واجهة نقاط.
+  static const pointsEnabled = false;
+  // إعلان VAST (HilltopAds، المنطقة 7306841 — رابط نمط IMA)
+  static const vastTagUrl =
+      'https://windy-imagination.com/dEmfFxzBd.GoNPv/ZyG/Ut/xeJmG9MuoZNU/lck/PmTSc/z-MoD-Y/4/N/DAEstoNCzJMVwrNFj/gs0WNRSnZRsAaRWE1/pvdDDq0rxM';
+  /// النطاق المسجّل في HilltopAds لهذه المنطقة (يُستعمل كـ baseUrl لصفحة الإعلان).
+  static const vastPageOrigin = 'https://ayssersalhi-a11y.github.io/';
+  static const vastStartTimeoutSeconds = 12; // إن لم يبدأ الإعلان خلالها تبدأ اللعبة
+  static const vastMaxSeconds = 60; // سقف مدة الإعلان
   // معرّفات LevelPlay (ليست أسراراً: تُضمَّن في التطبيق نفسه)
   static const levelPlayAppKey = '29868e4b5';
   static const lpBannerId = '8ykoywkozkldeeyx';

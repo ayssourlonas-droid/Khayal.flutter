@@ -134,7 +134,7 @@ class SettingsScreen extends StatelessWidget {
           children: [
             _topBar(ctx),
             const SizedBox(height: 36),
-            _adHero(ctx),
+            if (Config.pointsEnabled) _adHero(ctx),
             const SizedBox(height: 44),
             _section('الدعم والمشاركة'),
             _group([
@@ -196,6 +196,9 @@ class SettingsScreen extends StatelessWidget {
                   ])),
             ),
           ),
+          if (!Config.pointsEnabled)
+            const SizedBox(width: 120)
+          else
           ListenableBuilder(
             listenable: PlayerPoints.instance,
             builder: (_, __) => Container(

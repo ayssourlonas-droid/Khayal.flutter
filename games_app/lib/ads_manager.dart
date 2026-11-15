@@ -8,6 +8,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'config.dart';
 import 'levelplay_ads.dart';
 import 'player_points.dart';
+import 'vast_ad.dart';
 
 /// يقابل AdsManager.gd — AdMob الرسمي (موافقة UMP ثم تهيئة ثم بانر + إعلان مكافأة).
 /// المكافأة: نقطة واحدة لكل إعلان يُكمَل مشاهدته.
@@ -54,7 +55,7 @@ class AdsManager extends ChangeNotifier {
   bool get _supported => !kIsWeb && Platform.isAndroid;
 
   Future<void> init() async {
-    if (!_supported) return;
+    if (!_supported || Config.useVast) return; // VAST لا يحتاج SDK ولا نموذج UMP
     _requestConsent();
   }
 
@@ -202,6 +203,10 @@ class AdsManager extends ChangeNotifier {
   /// يعرض إعلاناً بينياً إن كان جاهزاً ومضى الفاصل، ثم ينفّذ [proceed] دائماً (مرة واحدة).
   /// لا ينتظر اللاعب أبداً إن لم يكن الإعلان جاهزاً.
   void showInterstitialThen(void Function() proceed) {
+    if (Config.useVast) {
+      VastAd.showThen(proceed);
+      return;
+    }
     if (Config.useLevelPlay) {
       final lp = _lp;
       if (lp == null) {
