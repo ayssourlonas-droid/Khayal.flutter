@@ -1,0 +1,55 @@
+[
+  {
+    "id": 1,
+    "release_year": 2008,
+    "category_tags": [
+      "رسوم متحركة",
+      "كوميدي",
+      "عائلي"
+    ],
+    "main_scene": {
+      "title_ar": "الأرنب الضخم بَك",
+      "title_en": "Big Buck Bunny",
+      "poster_url": "",
+      "imdb_rating": 6.5,
+      "app_rating": 8.0,
+      "rating_icon_type": 0
+    },
+    "details_scene": {
+      "description": "فيلم رسوم متحركة قصير من إنتاج مؤسسة Blender، عن أرنب ضخم طيب القلب تستفزه ثلاثة قوارض مشاغبة.",
+      "background_url": "",
+      "duration_min": 10,
+      "video_url": "https://example.com/film_video_only.mp4",
+      "source_url": "https://peach.blender.org/",
+      "license": "CC-BY-3.0",
+      "license_url": "https://creativecommons.org/licenses/by/3.0/",
+      "credit": "© Blender Foundation | peach.blender.org",
+      "cast": [],
+      "special_items": [],
+      "audio_tracks": [
+        {
+          "lang": "ar",
+          "title": "العربية",
+          "url": "https://example.com/film_ar.m4a"
+        },
+        {
+          "lang": "en",
+          "title": "English",
+          "url": "https://example.com/film_en.m4a"
+        }
+      ],
+      "subtitle_tracks": [
+        {
+          "lang": "ar",
+          "title": "العربية",
+          "url": "https://example.com/film_ar.srt"
+        },
+        {
+          "lang": "en",
+          "title": "English",
+          "url": "https://example.com/film_en.srt"
+        }
+      ]
+    }
+  }
+]
