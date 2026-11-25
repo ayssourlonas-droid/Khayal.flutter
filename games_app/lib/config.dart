@@ -63,15 +63,15 @@ class Config {
   /// إعلان واحد عند الدخول إلى لعبة (بعد خصم النقطة).
   static const interstitialOnEnter = true;
   /// أقل فاصل بين إعلانين بيني (ثوانٍ) كي لا يزعج اللاعب.
-  static const interstitialMinGapSeconds = 90;
+  static const interstitialMinGapSeconds = 60;
   /// اجعلها true إن كان التطبيق موجهاً للأطفال (قيود Families Policy).
   static const childDirected = false;
   static const realRewardedId = 'ca-app-pub-2993097916011860/1023750041';
   static const rewardPoints = 1;
   /// نقاط مجانية تُمنح مرة واحدة عند أول تشغيل بعد التثبيت.
-  static const welcomePoints = 5;
+  static const welcomePoints = 6;
   /// نقاط مجانية تُضاف مرة واحدة كل يوم (عند أول فتح للتطبيق في ذلك اليوم).
-  static const dailyPoints = 3;
+  static const dailyPoints = 2;
   /// سقف الرصيد للنقاط اليومية: لا تُضاف إن بلغ الرصيد هذا الحد (ولا تتجاوزه). نقاط مشاهدة الإعلانات غير مقيّدة بهذا السقف.
   static const dailyCap = 10;
   static const retryBaseSeconds = 15.0;
