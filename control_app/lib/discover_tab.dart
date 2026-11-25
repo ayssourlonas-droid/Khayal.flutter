@@ -461,12 +461,13 @@ class _RepoCardState extends State<_RepoCard> {
                 _chip(r.pushed, Colors.blueGrey.shade200, icon: Icons.update),
                 for (final t in topics) _chip(t, Pal.purple),
               ]),
-              if (widget.known || widget.rejected || widget.note != null || widget.hiddenN > 0 || widget.state != null) ...[
+              if (widget.known || widget.rejected || widget.note != null || widget.hiddenN > 0 || widget.state != null || r.suspectReason != null) ...[
                 const SizedBox(height: 6),
                 Wrap(spacing: 6, runSpacing: 5, children: [
                   if (widget.known) _chip('مسجّلة سابقاً', Pal.ok, icon: Icons.check_circle, filled: true),
                   if (widget.rejected) _chip('مرفوضة سابقاً', Pal.bad, icon: Icons.block, filled: true),
                   if (widget.note != null) _chip(widget.note!, Pal.warn, icon: Icons.warning_amber_rounded, filled: true),
+                  if (r.suspectReason != null) _chip(r.suspectReason!, Pal.info, icon: Icons.help_outline, filled: true),
                   if (widget.hiddenN > 0) _chip('+${widget.hiddenN} نسخ مشابهة مخفية', Pal.purple, filled: true),
                   if (widget.state != null) _chip(widget.state!, Pal.lime, icon: Icons.arrow_back, filled: true),
                 ]),

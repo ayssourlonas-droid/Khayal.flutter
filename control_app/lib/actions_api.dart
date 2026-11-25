@@ -54,6 +54,14 @@ class ActionsApi {
   // ── تشغيل ──
   static Future<void> dispatch(String workflowFile, Map<String, String> inputs) async {
     _need();
+    // إعداد الترجمة من شاشة الإعدادات يُرسل مع كل استيراد (workflow الاستيراد والطابور فقط: غيرهما لا يعرف هذين المدخلين).
+    if (workflowFile == 'import-game.yml' || workflowFile == 'import-queue.yml') {
+      inputs = {
+        'translate': Store.translateMode,
+        'translate_engine': Store.translateEngine,
+        ...inputs,
+      };
+    }
     final r = await http
         .post(_u('/actions/workflows/$workflowFile/dispatches'),
             headers: {..._h(), 'Content-Type': 'application/json'},

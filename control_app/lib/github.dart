@@ -66,6 +66,15 @@ class Github {
     return GhFile(jsonDecode(text), sha);
   }
 
+  /// يقرأ ملفاً نصياً كما هو (مثل LICENSE). يرجع null إن لم يوجد.
+  static Future<String?> getText(String path) async {
+    if (!Store.hasGithub) throw GhException('أدخل إعدادات GitHub أولاً (الإعدادات).');
+    final r = await http.get(_contents(path), headers: _headers(raw: true)).timeout(_timeout);
+    if (r.statusCode == 404) return null;
+    if (r.statusCode != 200) throw GhException(_err(r));
+    return utf8.decode(r.bodyBytes);
+  }
+
   /// قائمة ألعاب؛ إن كان الملف Dictionary نجمع القوائم داخله (سلوك Godot القديم).
   static List<Map<String, dynamic>> asList(dynamic data) {
     final out = <Map<String, dynamic>>[];

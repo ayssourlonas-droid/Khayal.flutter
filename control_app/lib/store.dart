@@ -26,6 +26,10 @@ class Store {
   static String get clCloud => _s('cl_cloud');
   static String get clKey => _s('cl_key');
   static String get clSecret => _s('cl_secret');
+  // الترجمة إلى العربية (تُرسل مع كل استيراد): off | meta (الاسم والوصف والتصنيفات) | full (+ نصوص داخل اللعبة)
+  static String get translateMode => const {'off', 'meta', 'full'}.contains(_s('translate_mode')) ? _s('translate_mode') : 'meta';
+  // محرّك الترجمة (مكتبات بلا ذكاء اصطناعي): google (يحتاج اتصالاً) | offline (نموذج محلي)
+  static String get translateEngine => _s('translate_engine') == 'offline' ? 'offline' : 'google';
 
   static Future<void> setAll(Map<String, String> v) async {
     for (final e in v.entries) {

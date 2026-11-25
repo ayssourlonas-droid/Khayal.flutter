@@ -16,6 +16,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  String _trMode = Store.translateMode;
+  String _trEngine = Store.translateEngine;
   final token = TextEditingController(text: Store.ghToken);
   final owner = TextEditingController(text: Store.ghOwner);
   final repo = TextEditingController(text: Store.ghRepo);
@@ -38,6 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _cStats = Color(0xFFFF9800);
   static const _cAi = Color(0xFFE7FF14);
   static const _cCloud = Color(0xFF26A69A);
+  static const _cTr = Color(0xFF7E57C2);
 
   bool _has(List<TextEditingController> l) => l.every((c) => c.text.trim().isNotEmpty);
 
@@ -58,6 +61,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'cl_cloud': cloud.text,
       'cl_key': key.text,
       'cl_secret': secret.text,
+      'translate_mode': _trMode,
+      'translate_engine': _trEngine,
     });
   }
 
@@ -256,6 +261,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 6),
             const Text('يحتاج التوكن صلاحية Secrets: Read and write على مستودع المشاريع.',
                 style: TextStyle(fontSize: 12, color: Colors.white54)),
+          ],
+        ),
+
+        _section(
+          icon: Icons.translate,
+          title: 'الترجمة إلى العربية',
+          color: _cTr,
+          optional: true,
+          ready: _trMode != 'off',
+          children: [
+            _note('تُطبَّق على كل لعبة تُستورد أو يُعاد استيرادها. بمكتبات ترجمة آلية وليست ذكاءً اصطناعياً، فراجع الاسم والوصف في قائمة المراجعة. '
+                'المستوى «مع اللعبة» يبني أيضاً ملف نصوص اللعبة بـ23 لغة؛ يحقنها تطبيق اللاعبين وقت اللعب حسب لغة المستخدم، ولا تُعدَّل ملفات اللعبة (فيشمل ألعاب GPL).'),
+            const Text('المستوى', style: TextStyle(fontSize: 12, color: Colors.white54)),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: 'off', label: Text('إيقاف')),
+                  ButtonSegment(value: 'meta', label: Text('الاسم والوصف')),
+                  ButtonSegment(value: 'full', label: Text('مع اللعبة')),
+                ],
+                selected: {_trMode},
+                onSelectionChanged: (v) => setState(() => _trMode = v.first),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('المحرّك', style: TextStyle(fontSize: 12, color: Colors.white54)),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: 'google', label: Text('Google (جودة أعلى)')),
+                  ButtonSegment(value: 'offline', label: Text('محلي (بلا اتصال)')),
+                ],
+                selected: {_trEngine},
+                onSelectionChanged: (v) => setState(() => _trEngine = v.first),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text('اضغط «حفظ» أسفل الشاشة ليُطبَّق الإعداد.', style: TextStyle(fontSize: 12, color: Colors.white54)),
           ],
         ),
 

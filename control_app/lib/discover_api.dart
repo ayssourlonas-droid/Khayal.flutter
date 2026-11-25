@@ -14,6 +14,24 @@ class FoundRepo {
       this.sizeKb);
   String get repoName => fullName.contains('/') ? fullName.split('/').last : fullName;
   String get key => nameKey(repoName);
+
+  /// تعليم فقط (لا استبعاد): مؤشرات أن المستودع ليس لعبة جاهزة (محرك أو قالب أو قائمة أو أداة).
+  /// يظهر كشارة تنبيه في بطاقة النتيجة، ويبقى المستودع قابلاً للتحديد والإرسال.
+  String? get suspectReason {
+    final t = '$repoName $desc $topics'.toLowerCase();
+    for (final p in _suspectPatterns) {
+      if (RegExp('(^|[^a-z0-9])(${p.$1})([^a-z0-9]|\$)').hasMatch(t)) return p.$2;
+    }
+    return null;
+  }
+
+  static const _suspectPatterns = <(String, String)>[
+    (r'engine|framework|game[- ]?engine', 'قد يكون محركاً/إطاراً'),
+    (r'template|boilerplate|starter|skeleton|scaffold', 'قد يكون قالباً'),
+    (r'awesome|tutorial|course|examples?|samples?|cheat[- ]?sheet|learn(ing)?|book', 'قد يكون قائمة/دروساً'),
+    (r'plugin|sdk|library|toolkit|generator|editor|devlog', 'قد يكون أداة/مكتبة'),
+    (r'(stickman|stick[- ]man)[- _]?(video|director|animation|skill|illustrations?|maker|recorder|tracker)|(video|animation)[- ]?(director|maker)|skills?|agent', 'قد يكون أداة ذكاء اصطناعي'),
+  ];
 }
 
 /// سجل الأسماء السابقة: key + الحجم (إن عُرف) لمقارنة الدفعات القادمة.

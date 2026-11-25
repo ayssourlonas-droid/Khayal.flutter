@@ -8,6 +8,7 @@ import 'game_form_screen.dart';
 import 'games_list_screen.dart';
 import 'discover_api.dart';
 import 'rejected_screen.dart';
+import 'licenses_screen.dart';
 
 /// مركز الألعاب: كل ما يخص الألعاب في مكان واحد (إضافة، تعديل، مراجعة، استيراد، بحث شامل).
 class GamesHubScreen extends StatefulWidget {
@@ -160,6 +161,8 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
             _action(Icons.block, 'المستودعات المرفوضة', 'يتجاهلها البحث، وتعود إليها بعد تطوير الأدوات', Pal.bad,
                 () => _go(const RejectedScreen()),
                 badge: _rejected == 0 ? null : '$_rejected'),
+            _action(Icons.verified_user, 'التراخيص', 'فحص رخصة كل لعبة: حرة، متوسطة، ممنوعة، أو بعقد، مع التفاصيل',
+                const Color(0xFF3DDC84), () => _go(const LicensesScreen())),
             _action(Icons.rocket_launch, 'استيراد الألعاب', 'استيراد من GitHub، اكتشاف، وسجل النتائج الملونة',
                 const Color(0xFFFF9800), () => _go(const ActionsScreen())),
           ],
