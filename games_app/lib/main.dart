@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart'; // [مشغل]
 
 import 'error_reporter.dart';
 import 'l10n.dart';
@@ -10,6 +11,7 @@ import 'sound_fx.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized(); // [مشغل]
   ErrorReporter.install(); // سجل أخطاء مجهول يظهر في تطبيق المتحكم
   await SystemChrome.setPreferredOrientations(
       [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]); // orientation=1 في جودوت

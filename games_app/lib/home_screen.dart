@@ -20,6 +20,7 @@ import 'settings_screen.dart';
 import 'update_check.dart';
 import 'tag_labels.dart';
 import 'l10n.dart';
+import 'film_home_screen.dart'; // [أفلام]
 
 /// تطبيع نص عربي/لاتيني للبحث: أحرف صغيرة، بلا تشكيل ولا تطويل، وتوحيد أ إ آ ← ا و ة ← ه و ى ← ي.
 String _normSearch(String s) => s
@@ -376,6 +377,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             children: [
               _icon('assets/images/a1w.webp', 170, 100,
                   () => _push(const AudioPlayerScreen(), speed: 3.5)),
+              const SizedBox(height: 20), // [أفلام]
+              GlowButton(
+                onTap: () => _push(const FilmHomeScreen(), speed: 3.5),
+                child: const SizedBox(
+                    width: 170, height: 100, child: Icon(Icons.movie_rounded, size: 80, color: Colors.white)),
+              ), // [أفلام]
             ],
           ),
         ),

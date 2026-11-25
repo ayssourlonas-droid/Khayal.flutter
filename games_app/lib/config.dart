@@ -25,6 +25,10 @@ class Config {
     'PARTNER',
   ];
 
+  /// [أفلام] قائمة الأفلام (تُدار من تطبيق المتحكم). يقرؤها film_data.dart.
+  static const filmsJsonUrl =
+      'https://raw.githubusercontent.com/ayssourlonas-droid/khayal-control/refs/heads/main/data_films.json';
+
   // ── مزوّد الإعلانات ──
   /// مزوّد الإعلانات الحالي: 'vast' = إعلان فيديو مباشر (HilltopAds) بلا نقاط (الافتراضي الآن)،
   /// 'levelplay' = Unity LevelPlay، 'admob' = AdMob. كودا LevelPlay وAdMob باقيان للرجوع إليهما عند الحاجة.
