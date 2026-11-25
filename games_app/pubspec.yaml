@@ -19,6 +19,11 @@ dependencies:
   google_mlkit_translation: ^0.11.0 # ترجمة على الجهاز لنصوص اللعبة التي بُنيت وقت اللعب
   device_info_plus: ^10.1.2
   unity_levelplay_mediation: 9.2.0
+  # [مشغل الأفلام]
+  media_kit: 1.1.11
+  media_kit_video: 1.2.5
+  media_kit_libs_android_video: 1.3.6
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:
