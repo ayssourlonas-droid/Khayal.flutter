@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import 'colors.dart';
 import 'design.dart';
+import 'l10n.dart';
 
 /// يقابل AlertPopup.gd — نافذة تنبيه 800x500 بحدود بنفسجية وتوهج،
 /// 1–3 أزرار 220x100 بلوحة ألوان، دخول بتكبير/تلاشٍ 0.25 ث وخروج 0.2 ث.

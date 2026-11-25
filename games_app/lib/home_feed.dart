@@ -1,12 +1,14 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import 'colors.dart';
 import 'favorites.dart';
 import 'glow_button.dart';
 import 'ui_image.dart';
+import 'tag_labels.dart';
+import 'l10n.dart';
 
 typedef OpenGame = void Function(Map<String, dynamic> game, Uint8List? poster);
 
@@ -14,8 +16,10 @@ Map<String, dynamic> _m(dynamic v) => v is Map ? Map<String, dynamic>.from(v) : 
 String _id(Map<String, dynamic> g) => (g['id'] ?? '').toString();
 String _title(Map<String, dynamic> g) => (_m(g['main_scene'])['title_ar'] ?? '').toString();
 String _poster(Map<String, dynamic> g) => (_m(g['main_scene'])['poster_url'] ?? '').toString();
-List<String> _tags(Map<String, dynamic> g) =>
-    g['category_tags'] is List ? (g['category_tags'] as List).map((e) => e.toString()).toList() : <String>[];
+List<String> _tags(Map<String, dynamic> g) {
+  TagLabels.absorb(g);
+  return g['category_tags'] is List ? (g['category_tags'] as List).map((e) => e.toString()).toList() : <String>[];
+}
 
 /// بذرة اليوم (بتوقيت الجهاز): تتغير مرة واحدة كل يوم، فتبقى توصيات اليوم ثابتة طوال اليوم.
 int _daySeed() {
@@ -170,7 +174,7 @@ class _BigCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tags = _tags(game).take(3).join(' • ');
+    final tags = _tags(game).take(3).map(TagLabels.of).join(' • ');
     final year = (game['release_year'] ?? '').toString();
     return Stack(
       children: [
@@ -281,7 +285,7 @@ class _TagChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(50),
           border: Border.all(color: AppColors.purpleOutline, width: 3),
         ),
-        child: Text('# $tag', style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w700, color: Color(0xFFE3B8FF))),
+        child: Text('# ${TagLabels.of(tag)}', style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w700, color: Color(0xFFE3B8FF))),
       ),
     );
   }

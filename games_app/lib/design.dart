@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'l10n.dart';
 
 /// أبعاد التصميم الأصلي في جودوت: 1080 عرضاً (الارتفاع يتبع نسبة الشاشة).
 const double kDesignWidth = 1080;

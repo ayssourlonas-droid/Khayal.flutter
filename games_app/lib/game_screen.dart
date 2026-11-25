@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -9,8 +9,11 @@ import 'ads_manager.dart';
 import 'app_state.dart';
 import 'colors.dart';
 import 'game_library.dart';
+import 'lang_prefs.dart';
+import 'lang_runtime.dart';
 import 'net_loader.dart';
 import 'stats_ping.dart';
+import 'l10n.dart';
 
 /// يقابل GameScreen.gd + GameWebView.gd + إضافة KhayalWebView:
 /// يشغّل لعبة الويب داخل WebView محصّن (https فقط، بلا جسر JS، تنقّل داخل نفس الموقع،
@@ -149,7 +152,18 @@ class _GameScreenState extends State<GameScreen> {
 
     WebViewController? c0;
     final c = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted) // الألعاب تحتاج JS؛ لا يوجد أي JavaScriptChannel
+      ..setJavaScriptMode(JavaScriptMode.unrestricted) // الألعاب تحتاج JS
+      // القناة الوحيدة: ترجمة نصوص وقت اللعب. تقبل قائمة نصوص قصيرة فقط وترد بترجمتها؛ لا تنفّذ شيئاً مما يصلها.
+      ..addJavaScriptChannel('KhayalI18n', onMessageReceived: (m) async {
+        final lang = LangPrefs.instance.resolved();
+        if (lang == null || !mounted) return;
+        final keys = RuntimeTranslator.parse(m.message);
+        if (keys.isEmpty) return;
+        final res = await RuntimeTranslator.translate(lang, keys);
+        if (res.isNotEmpty && mounted) {
+          c0?.runJavaScript('window.__khayalI18n&&window.__khayalI18n.add(${jsonEncode(res)});');
+        }
+      })
       ..setBackgroundColor(AppColors.gameBg)
       ..setNavigationDelegate(NavigationDelegate(
         onNavigationRequest: (req) {
@@ -173,6 +187,10 @@ class _GameScreenState extends State<GameScreen> {
         },
         onPageFinished: (_) {
           c0?.runJavaScript(_kWrapperJs);
+          // ترجمة نصوص اللعبة (إن كان لها _i18n.json واللغة مفعّلة)؛ أي فشل يترك اللعبة بنصها الأصلي
+          I18nInjector.scriptFor(_url).then((js) {
+            if (js != null && mounted) c0?.runJavaScript(js);
+          }).catchError((_) {});
           if (mounted) setState(() => _loading = false);
         },
         onWebResourceError: (e) {

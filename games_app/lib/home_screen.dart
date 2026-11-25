@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import 'ads_manager.dart';
 import 'app_state.dart';
@@ -18,6 +18,8 @@ import 'audio_player_screen.dart';
 import 'details_screen.dart';
 import 'settings_screen.dart';
 import 'update_check.dart';
+import 'tag_labels.dart';
+import 'l10n.dart';
 
 /// تطبيع نص عربي/لاتيني للبحث: أحرف صغيرة، بلا تشكيل ولا تطويل، وتوحيد أ إ آ ← ا و ة ← ه و ى ← ي.
 String _normSearch(String s) => s
@@ -62,8 +64,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   String _tagFilter = ''; // '' = الكل
   String _sort = 'default'; // default | rating | newest
 
-  List<String> _tagsOf(Map<String, dynamic> g) =>
-      g['category_tags'] is List ? (g['category_tags'] as List).map((e) => e.toString()).toList() : <String>[];
+  List<String> _tagsOf(Map<String, dynamic> g) {
+    TagLabels.absorb(g);
+    return g['category_tags'] is List ? (g['category_tags'] as List).map((e) => e.toString()).toList() : <String>[];
+  }
 
   List<Map<String, dynamic>> get _filtered {
     final q = _normSearch(_query.trim());
@@ -141,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   ),
                   for (final t in tags)
                     ChoiceChip(
-                      label: Text('$t (${counts[t]})'),
+                      label: Text('${TagLabels.of(t)} (${counts[t]})'),
                       selected: _tagFilter == t,
                       onSelected: (_) {
                         apply(() => _tagFilter = t);
@@ -400,13 +404,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     Expanded(
                       child: TextField(
                         controller: _searchCtl,
-                        textDirection: TextDirection.rtl,
+                        textDirection: L10n.isAr ? TextDirection.rtl : TextDirection.ltr,
                         style: const TextStyle(fontSize: 40, color: Colors.white),
                         cursorColor: Colors.white,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          hintText: 'ابحث عن لعبة...',
-                          hintStyle: TextStyle(fontSize: 40, color: Colors.white38),
+                          hintText: L10n.tr('ابحث عن لعبة...'),
+                          hintStyle: const TextStyle(fontSize: 40, color: Colors.white38),
                         ),
                         onChanged: (v) {
                           setState(() {

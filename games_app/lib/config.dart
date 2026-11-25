@@ -26,8 +26,8 @@ class Config {
   ];
 
   // ── مزوّد الإعلانات ──
-  /// 'levelplay' (Unity LevelPlay) أو 'admob'. كود AdMob باقٍ كما هو للرجوع إليه حين ينشر التطبيق في متجر مدعوم.
-  /// 'vast' = إعلان فيديو مباشر (HilltopAds) بلا نقاط | 'levelplay' | 'admob'
+  /// مزوّد الإعلانات الحالي: 'vast' = إعلان فيديو مباشر (HilltopAds) بلا نقاط (الافتراضي الآن)،
+  /// 'levelplay' = Unity LevelPlay، 'admob' = AdMob. كودا LevelPlay وAdMob باقيان للرجوع إليهما عند الحاجة.
   static const adProvider = 'vast';
   static bool get useVast => adProvider == 'vast';
   static bool get useLevelPlay => adProvider == 'levelplay';

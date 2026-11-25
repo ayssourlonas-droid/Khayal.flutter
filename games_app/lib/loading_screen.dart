@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/scheduler.dart';
 
 import 'ads_manager.dart';
@@ -12,6 +12,7 @@ import 'player_points.dart';
 import 'design.dart';
 import 'nav.dart';
 import 'home_screen.dart';
+import 'l10n.dart';
 
 /// يقابل LoadingScreen.gd — تدرج + شعار + جملة عشوائية + شريط تقدم ناعم (حد أدنى 3.5 ث).
 class LoadingScreen extends StatefulWidget {

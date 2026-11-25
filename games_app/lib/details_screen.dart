@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'ads_manager.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +20,8 @@ import 'nav.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'details_parts.dart';
+import 'tag_labels.dart';
+import 'l10n.dart';
 
 Map<String, dynamic> _m(dynamic v) => v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
 List _l(dynamic v) => v is List ? v : const [];
@@ -227,9 +229,10 @@ class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProvider
 
   Widget _body(double h) {
     final title = (main['title_ar'] ?? '').toString();
+    TagLabels.absorb(game);
     final tags = _l(game['category_tags']).map((e) => e.toString()).toList();
-    final primary = tags.isNotEmpty ? tags.first : (details['category'] ?? '').toString();
-    final secondary = tags.length > 1 ? tags.skip(1).join(' • ') : '';
+    final primary = tags.isNotEmpty ? TagLabels.of(tags.first) : TagLabels.of((details['category'] ?? '').toString());
+    final secondary = tags.length > 1 ? tags.skip(1).map(TagLabels.of).join(' • ') : '';
     final year = (game['release_year'] ?? '').toString();
     final imdb = (double.tryParse((main['imdb_rating'] ?? 0).toString()) ?? 0) * 10;
     final app = double.tryParse((main['app_rating'] ?? '').toString());

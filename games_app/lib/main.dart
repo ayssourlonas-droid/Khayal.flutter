@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'error_reporter.dart';
+import 'l10n.dart';
+import 'lang_prefs.dart';
 import 'loading_screen.dart';
 import 'nav.dart';
 import 'sound_fx.dart';
@@ -13,6 +15,8 @@ Future<void> main() async {
       [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]); // orientation=1 في جودوت
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await SoundFx.instance.init();
+  await LangPrefs.instance.init();
+  await L10n.init();
   runApp(const GameHubApp());
 }
 

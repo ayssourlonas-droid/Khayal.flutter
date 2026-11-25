@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:google_mobile_ads/google_mobile_ads.dart' show AdWidget, BannerAd;
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,7 +13,9 @@ import 'alert_popup.dart';
 import 'design.dart';
 import 'error_reporter.dart';
 import 'glow_button.dart';
+import 'lang_picker.dart';
 import 'sound_fx.dart';
+import 'l10n.dart';
 
 /// يقابل SettingsScreen.gd/.tscn — النقاط، التواصل، المشاركة، الملاحظات، وإعلان المكافأة.
 class SettingsScreen extends StatelessWidget {
@@ -150,7 +152,7 @@ class SettingsScreen extends StatelessWidget {
             ]),
             const SizedBox(height: 40),
             _section('التطبيق'),
-            _group([_soundItem()]),
+            _group([_soundItem(), const UiLangPicker(), const LangPicker()]),
           ],
         ),
       ),

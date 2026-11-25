@@ -2,13 +2,14 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/scheduler.dart';
 
 import 'colors.dart';
 import 'design.dart';
 import 'glow_button.dart';
 import 'sound_fx.dart';
+import 'l10n.dart';
 
 /// يقابل AudioPlayer.gd + PlaylistScreen.gd — مشغّل صوت محلي (bass.mp3).
 class AudioPlayerScreen extends StatefulWidget {
