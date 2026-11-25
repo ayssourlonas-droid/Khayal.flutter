@@ -13,10 +13,20 @@ class RuntimeTranslator {
   static final _manager = OnDeviceTranslatorModelManager();
   static int _served = 0;
 
+  /// رمز اللغة: اسم الحقل تغيّر بين إصدارات الحزمة (bcpCode ← bcp47Code)، فنجرّب الاثنين كي يُبنى مع أيّ إصدار.
+  static String _code(TranslateLanguage l) {
+    final d = l as dynamic;
+    try {
+      return d.bcp47Code as String;
+    } catch (_) {
+      return d.bcpCode as String;
+    }
+  }
+
   static TranslateLanguage? _lang(String code) {
     final c = code == 'zh-CN' ? 'zh' : code;
     for (final l in TranslateLanguage.values) {
-      if (l.bcp47Code == c) return l;
+      if (_code(l) == c) return l;
     }
     return null;
   }
@@ -26,7 +36,7 @@ class RuntimeTranslator {
   static Future<bool> _ensureModels(String lang) async {
     if (_noModel.contains(lang)) return false;
     try {
-      for (final code in ['en', _lang(lang)!.bcp47Code]) {
+      for (final code in ['en', _code(_lang(lang)!)]) {
         if (!await _manager.isModelDownloaded(code)) {
           final ok = await _manager.downloadModel(code, isWifiRequired: false).timeout(const Duration(seconds: 90));
           if (!ok) {
