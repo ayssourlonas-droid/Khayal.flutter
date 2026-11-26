@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'consts.dart';
@@ -192,25 +195,34 @@ class _LicensesScreenState extends State<LicensesScreen> {
     );
   }
 
-  Future<Map<String, dynamic>?> _report(String slug) async {
-    if (slug.isEmpty) return null;
+  /// ملفات اللعبة (تقرير الاستيراد ونص الرخصة) تُقرأ من موقعها المنشور لا من مستودع GitHub المضبوط في الإعدادات،
+  /// لأن البيانات والاستضافة قد تكونان في مستودعين مختلفين (khayal.data / khayal-control).
+  Future<String?> _fetch(String playUrl, String file) async {
+    final base = Uri.tryParse(playUrl);
+    if (base == null || base.scheme != 'https' || file.isEmpty) return null;
     try {
-      final d = (await Github.getJson('games/$slug/_import_report.json')).data;
+      final r = await http.get(base.resolve(file)).timeout(const Duration(seconds: 12));
+      return r.statusCode == 200 ? utf8.decode(r.bodyBytes) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _report(String playUrl) async {
+    final t = await _fetch(playUrl, '_import_report.json');
+    if (t == null) return null;
+    try {
+      final d = jsonDecode(t);
       return d is Map ? Map<String, dynamic>.from(d) : null;
     } catch (_) {
       return null;
     }
   }
 
-  Future<String?> _licenseText(String slug, String file) async {
-    if (slug.isEmpty || file.isEmpty) return null;
-    try {
-      final t = await Github.getText('games/$slug/$file');
-      if (t == null) return null;
-      return t.length > 700 ? '${t.substring(0, 700)}…' : t;
-    } catch (_) {
-      return null;
-    }
+  Future<String?> _licenseText(String playUrl, String file) async {
+    final t = await _fetch(playUrl, file);
+    if (t == null) return null;
+    return t.length > 700 ? '${t.substring(0, 700)}…' : t;
   }
 
   Widget _section(String title, Widget child, {Color? color}) => Padding(
@@ -292,7 +304,7 @@ class _LicensesScreenState extends State<LicensesScreen> {
             ]),
           ),
           FutureBuilder<List<dynamic>>(
-            future: Future.wait([_report(r.slug), _licenseText(r.slug, (idx?['license_file'] ?? 'LICENSE').toString())]),
+            future: Future.wait([_report((d['play_url'] ?? '').toString()), _licenseText((d['play_url'] ?? '').toString(), (idx?['license_file'] ?? 'LICENSE').toString())]),
             builder: (_, snap) {
               if (!snap.hasData) return const Padding(padding: EdgeInsets.only(top: 16), child: Center(child: CircularProgressIndicator()));
               final rep = snap.data![0] as Map<String, dynamic>?;

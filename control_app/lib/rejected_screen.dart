@@ -45,17 +45,46 @@ class _RejectedScreenState extends State<RejectedScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
-  /// تصنيف تقريبي لسبب الرفض بالكلمات المفتاحية (النص حرّ، فالتصنيف للمراجعة السريعة فقط).
+  static const _fixableTag = '★ قد تنجح الآن';
+
+  /// تصنيف لسبب الرفض بالكلمات المفتاحية (النص حرّ، فالتصنيف للمراجعة السريعة فقط). الترتيب مهم: الأخصّ أولاً.
   static String _category(Map e) {
     final r = '${e['reason'] ?? ''}'.toLowerCase();
     if (r.contains('ليست لعبة') || r.contains('لا تستقبل أي إدخال')) return 'ليست لعبة';
     if (r.contains('رخص') || r.contains('license') || r.contains('gpl')) return 'رخصة';
+    if (r.contains('لم أجد نسخة ويب')) return 'لا نسخة ويب';
+    if (r.contains('فشل البناء')) return 'فشل البناء';
+    if (r.contains('خادم') || r.contains('قاعدة بيانات') || r.contains('(ws)') || r.contains('socket')) return 'تحتاج خادماً';
+    if (r.contains('تتجاوز 25mb') || r.contains('حجم') || r.contains('كبير')) return 'حجم';
+    if (r.contains('تعطّل الاستيراد')) return 'تعطّل الاستيراد';
     if (r.contains('فارغ') || r.contains('لا تعمل') || r.contains('خطأ') || r.contains('404')) return 'لا تعمل / فارغة';
-    if (r.contains('خادم') || r.contains('backend') || r.contains('server') || r.contains('بناء') || r.contains('build')) return 'تحتاج خادماً أو بناءً';
-    if (r.contains('حجم') || r.contains('كبير') || r.contains('mb')) return 'حجم';
     if (r.contains('مكرر')) return 'مكررة';
     return 'أخرى';
   }
+
+  /// أسباب عالجتها تحسينات 23 نوفمبر (فرض أدوات البناء، وسلسلة بدائل npm، وتعطّل بلا تقرير، وقاعدة WebGL،
+  /// وفحص الحجم بعد ضغط الوسائط): تستحق إعادة المحاولة. تقدير وليس ضماناً.
+  static bool _fixable(Map e) {
+    final r = '${e['reason'] ?? ''}';
+    return r.contains('رمز 127') ||
+        r.contains('تعطّل الاستيراد') ||
+        r.contains('الصفحة فارغة بعد') ||
+        r.contains("'npm', 'ci'") ||
+        r.contains("'yarn', 'install'") ||
+        r.contains("'pnpm'") ||
+        r.contains('تتجاوز 25MB');
+  }
+
+  static const _hints = {
+    'لا نسخة ويب': 'لا index.html ولا أمر بناء: غالباً مشروع Unity/Godot مصدري أو أداة. جرّب تحديد subdir أو build_cmd عند الاستيراد اليدوي، وإلا اتركها.',
+    'فشل البناء': 'فشل npm/yarn/pnpm. رمز 127 يعني غياب أداة البناء (عولج). غير ذلك يحتاج فحص سجل التشغيل.',
+    'لا تعمل / فارغة': 'الصفحة بيضاء أو بلا أي رسم. بعضها كان بسبب قاعدة WebGL القديمة وعولج. أعد المحاولة.',
+    'ليست لعبة': 'الصفحة لا تستقبل إدخالاً. غالباً عرض أو أداة؛ اتركها.',
+    'تحتاج خادماً': 'لعبة جماعية أو تحتاج قاعدة بيانات؛ لا تعمل كموقع ثابت. اتركها.',
+    'حجم': 'ملفات فوق حد Cloudflare (25MB للملف). فحص الحجم يجري الآن بعد ضغط الوسائط، فأعد المحاولة؛ الفيديو الكبير يبقى مرفوضاً.',
+    'تعطّل الاستيراد': 'تعطّل قبل إنتاج تقرير. صار يُكتب تقرير بالسبب، فأعد المحاولة لنرى السبب الحقيقي.',
+    'رخصة': 'رخصة غير مسموحة (NC/ND/AGPL أو بلا رخصة). اتركها.',
+  };
 
   Map<String, int> get _cats {
     final m = <String, int>{};
@@ -66,10 +95,16 @@ class _RejectedScreenState extends State<RejectedScreen> {
     return m;
   }
 
+  int get _fixableCount => _items.where(_fixable).length;
+
   List<Map<String, dynamic>> get _shown {
     final q = _q.trim().toLowerCase();
     return _items.where((e) {
-      if (_cat.isNotEmpty && _category(e) != _cat) return false;
+      if (_cat == _fixableTag) {
+        if (!_fixable(e)) return false;
+      } else if (_cat.isNotEmpty && _category(e) != _cat) {
+        return false;
+      }
       return q.isEmpty || '${e['repo']} ${e['reason']}'.toLowerCase().contains(q);
     }).toList();
   }
@@ -151,6 +186,15 @@ class _RejectedScreenState extends State<RejectedScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
+                if (_fixableCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+                    child: ChoiceChip(
+                      label: Text('$_fixableTag ($_fixableCount)'),
+                      selected: _cat == _fixableTag,
+                      onSelected: (v) => setState(() => _cat = v ? _fixableTag : ''),
+                    ),
+                  ),
                 for (final c in (_cats.entries.toList()..sort((a, b) => b.value.compareTo(a.value))))
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
@@ -162,6 +206,29 @@ class _RejectedScreenState extends State<RejectedScreen> {
                   ),
               ],
             ),
+          ),
+        if (_cat.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                child: Text(
+                    _cat == _fixableTag
+                        ? 'رُفضت بأسباب عالجتها التحسينات الأخيرة؛ أعد محاولتها (حتى $_maxQueue في الطابور الواحد). تقدير وليس ضماناً.'
+                        : (_hints[_cat] ?? ''),
+                    style: const TextStyle(fontSize: 12, color: Colors.white70)),
+              ),
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => setState(() {
+                          for (final e in _shown.take(_maxQueue)) {
+                            _sel.add('${e['url']}');
+                          }
+                        }),
+                child: Text('حدّد أول $_maxQueue'),
+              ),
+            ]),
           ),
         if (_loading) const LinearProgressIndicator(),
         Expanded(
