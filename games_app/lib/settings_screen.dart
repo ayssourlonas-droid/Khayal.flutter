@@ -152,7 +152,7 @@ class SettingsScreen extends StatelessWidget {
             ]),
             const SizedBox(height: 40),
             _section('التطبيق'),
-            _group([_soundItem(), const UiLangPicker(), const LangPicker()]),
+            _group([_soundItem(), const AchievementsEntry(), const UiLangPicker(), const LangPicker()]),
           ],
         ),
       ),

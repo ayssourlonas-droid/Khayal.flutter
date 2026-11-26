@@ -5,6 +5,8 @@ import 'package:media_kit/media_kit.dart'; // [مشغل]
 import 'error_reporter.dart';
 import 'l10n.dart';
 import 'lang_prefs.dart';
+import 'achievements.dart';
+import 'play_stats.dart';
 import 'loading_screen.dart';
 import 'nav.dart';
 import 'sound_fx.dart';
@@ -19,6 +21,8 @@ Future<void> main() async {
   await SoundFx.instance.init();
   await LangPrefs.instance.init();
   await L10n.init();
+  await PlayStats.instance.load();
+  Achievements.init();
   runApp(const GameHubApp());
 }
 

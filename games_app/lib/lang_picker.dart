@@ -2,7 +2,9 @@ import 'package:flutter/material.dart' hide Text;
 
 import 'colors.dart';
 import 'glow_button.dart';
+import 'achievements_screen.dart';
 import 'lang_prefs.dart';
+import 'nav.dart';
 import 'l10n.dart';
 
 /// صف «لغة نصوص الألعاب» في الإعدادات: يتوسّع ليعرض الخيارات (تلقائي، بلا ترجمة، ثم اللغات).
@@ -160,6 +162,39 @@ class _UiLangPickerState extends State<UiLangPicker> {
           for (final e in L10n.options.entries) _option(e.key, e.value, cur),
         ],
       ]),
+    );
+  }
+}
+
+
+/// صف «إنجازاتي» في الإعدادات: يفتح شاشة الإحصاءات والإنجازات.
+class AchievementsEntry extends StatelessWidget {
+  const AchievementsEntry({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return GlowButton(
+      onTap: () => Nav.push(const AchievementsScreen()),
+      child: Container(
+        height: 124,
+        color: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Row(children: [
+          Container(
+            width: 84,
+            height: 84,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(colors: [Color(0xFFC21AE0), Color(0xFF6A0DAD)], begin: Alignment.topRight, end: Alignment.bottomLeft),
+            ),
+            child: const Icon(Icons.military_tech, color: Colors.white, size: 46),
+          ),
+          const SizedBox(width: 26),
+          const Expanded(
+            child: Text('إنجازاتي وإحصاءاتي', style: TextStyle(fontSize: 46, fontWeight: FontWeight.w700, color: Colors.white)),
+          ),
+          const Icon(Icons.chevron_left, color: Color(0xFFE3B8FF), size: 56),
+        ]),
+      ),
     );
   }
 }

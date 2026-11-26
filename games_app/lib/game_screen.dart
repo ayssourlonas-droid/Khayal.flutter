@@ -5,12 +5,14 @@ import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'achievements.dart';
 import 'ads_manager.dart';
 import 'app_state.dart';
 import 'colors.dart';
 import 'game_library.dart';
 import 'lang_prefs.dart';
 import 'lang_runtime.dart';
+import 'play_stats.dart';
 import 'net_loader.dart';
 import 'stats_ping.dart';
 import 'l10n.dart';
@@ -103,6 +105,9 @@ const String _kWrapperJs = r"""
 })();
 """;
 
+const String _kPerfJs =
+    r'''(function(){if(window.__khayalPerf)return;var P=window.__khayalPerf={f:0,ms:0,s:0,w:0,l:performance.now()};P.take=function(){var r={f:P.f,ms:P.ms,s:P.s,w:P.w};P.f=0;P.ms=0;P.s=0;P.w=0;return JSON.stringify(r)};function L(t){var d=t-P.l;P.l=t;if(d>0&&d<2000){P.f++;P.ms+=d;if(d>50)P.s++;if(d>P.w)P.w=d}requestAnimationFrame(L)}requestAnimationFrame(L)})();''';
+
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
 
@@ -122,6 +127,7 @@ class _GameScreenState extends State<GameScreen> {
   double? _netValue; // تقدم تحميل ما بعد الفتح (null = غير معروف)
   bool _netBusy = false;
   Timer? _poll;
+  Timer? _perfT;
 
   @override
   void initState() {
@@ -144,6 +150,9 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
     _host = uri.host;
+    PlayStats.instance.startSession((_game['id'] ?? '').toString(), (((_game['main_scene'] as Map?) ?? const {})['title_ar'] ?? '').toString());
+    Future.delayed(const Duration(milliseconds: 800), Achievements.check);
+    _perfT = Timer.periodic(const Duration(seconds: 15), (_) => _pullPerf());
     // نسجّل الفتح بعد ثانيتين فقط إن بقي اللاعب في اللعبة (يتجاهل الدخول العرضي)
     final statsUrl = _url;
     Future.delayed(const Duration(seconds: 2), () {
@@ -187,6 +196,7 @@ class _GameScreenState extends State<GameScreen> {
         },
         onPageFinished: (_) {
           c0?.runJavaScript(_kWrapperJs);
+          c0?.runJavaScript(_kPerfJs);
           // ترجمة نصوص اللعبة (إن كان لها _i18n.json واللغة مفعّلة)؛ أي فشل يترك اللعبة بنصها الأصلي
           I18nInjector.scriptFor(_url).then((js) {
             if (js != null && mounted) c0?.runJavaScript(js);
@@ -257,9 +267,26 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  /// يسحب عدّاد الإطارات الذي حقناه في الصفحة ويضيفه لإحصاءات الأداء (محلي فقط).
+  Future<void> _pullPerf() async {
+    final c = _controller;
+    if (c == null || !mounted) return;
+    try {
+      final r = await c.runJavaScriptReturningResult('window.__khayalPerf?window.__khayalPerf.take():"{}"');
+      dynamic j = jsonDecode(r.toString());
+      if (j is String) j = jsonDecode(j); // أندرويد يُرجع النص مُغلَّفاً مرتين
+      if (j is Map) {
+        PlayStats.instance.addPerf((_game['id'] ?? '').toString(), (j['f'] as num?)?.toInt() ?? 0, (j['ms'] as num?)?.toDouble() ?? 0, (j['s'] as num?)?.toInt() ?? 0);
+      }
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _poll?.cancel();
+    _perfT?.cancel();
+    PlayStats.instance.endSession();
+    Future.delayed(const Duration(milliseconds: 600), Achievements.check);
     // التطبيق كله عمودي: نعيد القفل عند الخروج من اللعبة
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
