@@ -20,7 +20,11 @@ import 'settings_screen.dart';
 import 'update_check.dart';
 import 'tag_labels.dart';
 import 'l10n.dart';
+import 'side_categories.dart';
 import 'film_home_screen.dart'; // [أفلام]
+
+/// زر مشغّل الصوت مخفي حالياً (الكود باقٍ). غيّرها إلى true لإظهاره.
+const bool _kShowAudioBtn = false;
 
 /// تطبيع نص عربي/لاتيني للبحث: أحرف صغيرة، بلا تشكيل ولا تطويل، وتوحيد أ إ آ ← ا و ة ← ه و ى ← ي.
 String _normSearch(String s) => s
@@ -63,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   final _searchCtl = TextEditingController();
   String _query = '';
   String _tagFilter = ''; // '' = الكل
+  String _sideCat = ''; // تصنيف الدرج الجانبي ('' = بلا)
   String _sort = 'default'; // default | rating | newest
 
   List<String> _tagsOf(Map<String, dynamic> g) {
@@ -75,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final l = _games.where((g) {
       final tags = _tagsOf(g);
       if (_tagFilter.isNotEmpty && !tags.contains(_tagFilter)) return false;
+      if (!SideCats.pass(SideCats.games, _sideCat, tags)) return false;
       if (q.isEmpty) return true;
       final m = g['main_scene'] is Map ? g['main_scene'] as Map : const {};
       return _normSearch('${m['title_ar'] ?? ''} ${m['title_en'] ?? ''} ${tags.join(' ')}').contains(q);
@@ -363,10 +369,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               _icon('assets/images/a1u.webp', 170, 100, () => _movePage(0)),
               const SizedBox(width: 20),
               _icon('assets/images/a1y.webp', 170, 100, () => _movePage(1)),
+              const SizedBox(width: 20), // [أفلام] بجانب أيقونة الألعاب وبالصورة نفسها
+              _icon('assets/images/a1y.webp', 170, 100, () => _push(const FilmHomeScreen(), speed: 3.5)),
             ],
           ),
         ),
-        // عمود التبويبات يمين الوسط (زر مشغّل الصوت)
+        // عمود التبويبات يمين الوسط (زر مشغّل الصوت مخفي بالعلَم _kShowAudioBtn، والعمود باقٍ لأزرار الأصناف)
         Positioned(
           right: 0,
           top: h / 2 - 210,
@@ -375,16 +383,25 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _icon('assets/images/a1w.webp', 170, 100,
-                  () => _push(const AudioPlayerScreen(), speed: 3.5)),
-              const SizedBox(height: 20), // [أفلام]
-              GlowButton(
-                onTap: () => _push(const FilmHomeScreen(), speed: 3.5),
-                child: const SizedBox(
-                    width: 170, height: 100, child: Icon(Icons.movie_rounded, size: 80, color: Colors.white)),
-              ), // [أفلام]
+              if (_kShowAudioBtn)
+                _icon('assets/images/a1w.webp', 170, 100,
+                    () => _push(const AudioPlayerScreen(), speed: 3.5)),
             ],
           ),
+        ),
+        // درج الأصناف الجانبي (في قائمة الألعاب فقط، لا في الرئيسية): خط على الحافة يُسحب لإظهار الأزرار
+        SideCatsDrawer(
+          top: h / 2 - 300,
+          visible: _page == 1,
+          cats: SideCats.games,
+          selected: _sideCat,
+          onSelect: (k) {
+            setState(() {
+              _sideCat = k;
+              _shown = _batch;
+            });
+            if (_gridScroll.hasClients) _gridScroll.jumpTo(0);
+          },
         ),
         // شريط البحث والتصفية (يظهر في صفحة الألعاب فقط)
         Positioned(

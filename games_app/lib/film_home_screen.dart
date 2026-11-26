@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart' hide Text;
 
 import 'l10n.dart';
+import 'side_categories.dart';
 import 'ads_manager.dart';
 import 'audio_player_screen.dart';
 import 'colors.dart';
@@ -18,6 +19,9 @@ import 'net_loader.dart';
 import 'pull_refresh.dart';
 import 'settings_screen.dart';
 import 'tag_labels.dart';
+
+/// زر مشغّل الصوت مخفي حالياً (الكود باقٍ). غيّرها إلى true لإظهاره.
+const bool _kShowAudioBtn = false;
 
 /// تطبيع نص عربي/لاتيني للبحث: أحرف صغيرة، بلا تشكيل ولا تطويل، وتوحيد أ إ آ ← ا و ة ← ه و ى ← ي.
 String _normSearch(String s) => s
@@ -60,6 +64,7 @@ class _FilmHomeScreenState extends State<FilmHomeScreen> with SingleTickerProvid
   final _searchCtl = TextEditingController();
   String _query = '';
   String _tagFilter = ''; // '' = الكل
+  String _sideCat = ''; // تصنيف الدرج الجانبي ('' = بلا)
   String _sort = 'default'; // default | rating | newest
 
   List<String> _tagsOf(Map<String, dynamic> f) {
@@ -72,6 +77,7 @@ class _FilmHomeScreenState extends State<FilmHomeScreen> with SingleTickerProvid
     final l = _films.where((f) {
       final tags = _tagsOf(f);
       if (_tagFilter.isNotEmpty && !tags.contains(_tagFilter)) return false;
+      if (!SideCats.pass(SideCats.films, _sideCat, tags)) return false;
       if (q.isEmpty) return true;
       final m = f['main_scene'] is Map ? f['main_scene'] as Map : const {};
       return _normSearch('${m['title_ar'] ?? ''} ${m['title_en'] ?? ''} ${tags.join(' ')}').contains(q);
@@ -340,11 +346,13 @@ class _FilmHomeScreenState extends State<FilmHomeScreen> with SingleTickerProvid
             children: [
               _icon('assets/images/a1u.webp', 170, 100, () => _movePage(0)),
               const SizedBox(width: 20),
-              _icon('assets/images/a1y.webp', 170, 100, () => _movePage(1)),
+              _icon('assets/images/a1y.webp', 170, 100, () => Navigator.of(context).maybePop()), // الألعاب
+              const SizedBox(width: 20),
+              _icon('assets/images/a1y.webp', 170, 100, () => _movePage(1)), // الأفلام
             ],
           ),
         ),
-        // عمود التبويبات يمين الوسط (زر مشغّل الصوت)
+        // عمود التبويبات يمين الوسط (زر مشغّل الصوت مخفي بالعلَم _kShowAudioBtn، والعمود باقٍ لأزرار الأصناف)
         Positioned(
           right: 0,
           top: h / 2 - 210,
@@ -353,19 +361,25 @@ class _FilmHomeScreenState extends State<FilmHomeScreen> with SingleTickerProvid
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _icon('assets/images/a1w.webp', 170, 100,
-                  () => _push(const AudioPlayerScreen(), speed: 3.5)),
-              const SizedBox(height: 20),
-              // العودة إلى قسم الألعاب
-              GlowButton(
-                onTap: () => Navigator.of(context).maybePop(),
-                child: const SizedBox(
-                    width: 170,
-                    height: 100,
-                    child: Icon(Icons.sports_esports_rounded, size: 80, color: Colors.white)),
-              ),
+              if (_kShowAudioBtn)
+                _icon('assets/images/a1w.webp', 170, 100,
+                    () => _push(const AudioPlayerScreen(), speed: 3.5)),
             ],
           ),
+        ),
+        // درج الأصناف الجانبي (في قائمة الأفلام فقط، لا في الرئيسية): خط على الحافة يُسحب لإظهار الأزرار
+        SideCatsDrawer(
+          top: h / 2 - 300,
+          visible: _page == 1,
+          cats: SideCats.films,
+          selected: _sideCat,
+          onSelect: (k) {
+            setState(() {
+              _sideCat = k;
+              _shown = _batch;
+            });
+            if (_gridScroll.hasClients) _gridScroll.jumpTo(0);
+          },
         ),
         // شريط البحث والتصفية (يظهر في صفحة الأفلام فقط)
         Positioned(
