@@ -3,11 +3,11 @@ class Config {
   Config._();
 
   static const gamesJsonUrl =
-      'https://raw.githubusercontent.com/ayssourlonas-droid/khayal-control/refs/heads/main/data_games.json';
+      'https://raw.githubusercontent.com/ayssourlonas-droid/khayal.data/refs/heads/main/data_games.json';
   static const gamesAltJsonUrl =
-      'https://raw.githubusercontent.com/ayssourlonas-droid/khayal-control/refs/heads/main/data_games_featured.json';
+      'https://raw.githubusercontent.com/ayssourlonas-droid/khayal.data/refs/heads/main/data_games_featured.json';
   static const versionCheckUrl =
-      'https://raw.githubusercontent.com/ayssourlonas-droid/khayal-control/refs/heads/main/version.json';
+      'https://raw.githubusercontent.com/ayssourlonas-droid/khayal.data/refs/heads/main/version.json';
 
   /// تراخيص مسموح بها لإعادة التوزيع التجاري. NC و ND ممنوعتان عمداً.
   static const allowedLicenses = [
@@ -27,7 +27,7 @@ class Config {
 
   /// [أفلام] قائمة الأفلام (تُدار من تطبيق المتحكم). يقرؤها film_data.dart.
   static const filmsJsonUrl =
-      'https://raw.githubusercontent.com/ayssourlonas-droid/khayal-control/refs/heads/main/data_films.json';
+      'https://raw.githubusercontent.com/ayssourlonas-droid/khayal.data/refs/heads/main/data_films.json';
 
   // ── مزوّد الإعلانات ──
   /// مزوّد الإعلانات الحالي: 'vast' = إعلان فيديو مباشر (HilltopAds) بلا نقاط (الافتراضي الآن)،
