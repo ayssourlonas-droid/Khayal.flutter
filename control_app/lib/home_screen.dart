@@ -3,6 +3,7 @@ import 'store.dart';
 import 'theme.dart';
 import 'fonts_screen.dart';
 import 'games_hub_screen.dart';
+import 'films_hub_screen.dart'; // [أفلام]
 import 'server_screen.dart';
 import 'settings_screen.dart';
 import 'errors_screen.dart';
@@ -163,6 +164,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             _tile(Icons.sports_esports, 'الألعاب', 'إضافة، تعديل، مراجعة، استيراد وبحث شامل',
                 const [Color(0xFF7B1FA2), Color(0xFFFF9800)], () => _go(const GamesHubScreen())),
+            _tile(Icons.movie, 'الأفلام', 'إضافة وتعديل: فيديو بلا صوت + أصوات وترجمات منفصلة',
+                const [Color(0xFFC2185B), Color(0xFF7C4DFF)], () => _go(const FilmsHubScreen())),
             _tile(Icons.bar_chart, 'إحصاءات اللعب', 'أكثر الألعاب فتحاً (يحتاج Worker)',
                 const [Color(0xFF1565C0), Color(0xFF42A5F5)], () => _go(const StatsScreen())),
             _tile(Icons.bug_report, 'أخطاء خيال', 'أخطاء تحدث في هواتف اللاعبين: النوع، المكان، الجهاز وأندرويد',
