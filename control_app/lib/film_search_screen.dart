@@ -17,6 +17,9 @@ class _FilmSearchScreenState extends State<FilmSearchScreen> {
   String _source = 'archive';
   bool _loading = false;
   bool _showRejected = false;
+  int _minMin = 60; // أقل مدة بالدقائق (0 = الكل): الافتراضي أفلام حقيقية
+  String _coll = '';
+  String _progress = '';
   List<FilmCandidate> _all = [];
   String _note = '';
 
@@ -26,13 +29,23 @@ class _FilmSearchScreenState extends State<FilmSearchScreen> {
       _note = '';
     });
     try {
-      _all = _source == 'archive' ? await FilmSearchApi.archive(_q.text) : await FilmSearchApi.commons(_q.text);
+      _all = _source == 'archive'
+          ? await FilmSearchApi.archive(_q.text, collection: _coll)
+          : await FilmSearchApi.commons(_q.text);
       if (_all.isEmpty) _note = 'لا نتائج. جرّب كلمات أخرى (بالإنجليزية غالباً).';
+      if (mounted) setState(() => _loading = false);
+      // فحص المدة الفعلية للمقبولة رخصةً فقط (يوفّر الطلبات)
+      await FilmSearchApi.enrich([for (final c in _all) if (c.license.allowed) c], onProgress: (a, b) {
+        if (mounted) setState(() => _progress = a >= b ? '' : 'فحص المدة $a/$b');
+      });
     } catch (e) {
       _all = [];
       if (mounted) toast(context, '$e', error: true);
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) setState(() {
+      _loading = false;
+      _progress = '';
+    });
   }
 
   Future<void> _use(FilmCandidate c) async {
@@ -62,6 +75,36 @@ class _FilmSearchScreenState extends State<FilmSearchScreen> {
         child: Text('${ok ? '✓' : '✗'} $t', style: const TextStyle(fontSize: 11)),
       );
 
+  String _fmtMin(double m) {
+    final t = m.round();
+    return t >= 60 ? '${t ~/ 60}س ${t % 60}د' : '$tد';
+  }
+
+  Widget _durationBadge(FilmCandidate c) {
+    final m = c.durationMin;
+    final String t;
+    final Color col;
+    if (m == null) {
+      t = c.source == 'archive' && !c.resolved ? 'جارٍ فحص المدة...' : 'المدة غير معروفة';
+      col = Colors.white54;
+    } else if (m >= 60) {
+      t = '🎬 فيلم طويل · ${_fmtMin(m)}';
+      col = Pal.ok;
+    } else if (m >= 20) {
+      t = '🎞️ فيلم قصير · ${_fmtMin(m)}';
+      col = Pal.warn;
+    } else {
+      t = '⚠️ مقطع قصير · ${_fmtMin(m)}';
+      col = Pal.bad;
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Text('$t${c.downloads > 0 ? '  ·  ⬇ ${c.downloads}' : ''}', style: TextStyle(fontSize: 12, color: col, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  bool _passMin(FilmCandidate c) => _minMin == 0 || (c.durationMin != null && c.durationMin! >= _minMin);
+
   Widget _card(FilmCandidate c) {
     final lic = c.license;
     final p = lic.id == null ? null : FilmLicensePolicy.of(lic.id!);
@@ -90,6 +133,7 @@ class _FilmSearchScreenState extends State<FilmSearchScreen> {
                 Text(c.title.isEmpty ? '؟' : c.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
                 if (c.creator.isNotEmpty) Text(c.creator, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: Colors.white70)),
                 if (c.year.isNotEmpty) Text(c.year, style: const TextStyle(fontSize: 12, color: Colors.white54)),
+                _durationBadge(c),
                 const SizedBox(height: 4),
                 Text(
                   ok ? (p?.name ?? lic.id!) : (lic.reason.isEmpty ? 'مرفوضة' : lic.reason),
@@ -124,7 +168,8 @@ class _FilmSearchScreenState extends State<FilmSearchScreen> {
   Widget build(BuildContext context) {
     final ok = _all.where((c) => c.license.allowed).toList();
     final rejected = _all.length - ok.length;
-    final shown = _showRejected ? _all : ok;
+    final shown = (_showRejected ? _all : ok).where((c) => !c.license.allowed || _passMin(c)).toList();
+    final hiddenShort = ok.where((c) => !_passMin(c)).length;
     return Scaffold(
       appBar: AppBar(title: const Text('بحث عن أفلام مرخّصة')),
       body: ListView(padding: const EdgeInsets.all(14), children: [
@@ -143,7 +188,25 @@ class _FilmSearchScreenState extends State<FilmSearchScreen> {
           ChoiceChip(label: const Text('Internet Archive'), selected: _source == 'archive', onSelected: (_) => setState(() => _source = 'archive')),
           ChoiceChip(label: const Text('Wikimedia Commons'), selected: _source == 'commons', onSelected: (_) => setState(() => _source = 'commons')),
         ]),
-        if (_loading) const Padding(padding: EdgeInsets.only(top: 10), child: LinearProgressIndicator()),
+        if (_source == 'archive')
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: DropdownButtonFormField<String>(
+              value: _coll,
+              decoration: const InputDecoration(labelText: 'مجموعة الأرشيف'),
+              items: [for (final e in FilmSearchApi.archiveCollections.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+              onChanged: (v) => setState(() => _coll = v ?? ''),
+            ),
+          ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          const Text('المدة:'),
+          ChoiceChip(label: const Text('أفلام +60 د'), selected: _minMin == 60, onSelected: (_) => setState(() => _minMin = 60)),
+          ChoiceChip(label: const Text('+20 د'), selected: _minMin == 20, onSelected: (_) => setState(() => _minMin = 20)),
+          ChoiceChip(label: const Text('الكل'), selected: _minMin == 0, onSelected: (_) => setState(() => _minMin = 0)),
+        ]),
+        if (_loading || _progress.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const LinearProgressIndicator(), if (_progress.isNotEmpty) Text(_progress, style: const TextStyle(fontSize: 12))])),
+        if (!_loading && hiddenShort > 0) Padding(padding: const EdgeInsets.only(top: 6), child: Text('أُخفي $hiddenShort نتيجة أقصر من $_minMin دقيقة (أو مدتها غير معروفة). اختر «الكل» لإظهارها.', style: const TextStyle(fontSize: 12, color: Colors.white60))),
         if (_note.isNotEmpty) Padding(padding: const EdgeInsets.all(16), child: Text(_note)),
         if (_all.isNotEmpty)
           SwitchListTile(
