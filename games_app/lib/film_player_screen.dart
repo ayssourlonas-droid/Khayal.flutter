@@ -34,6 +34,8 @@ class _FilmPlayerScreenState extends State<FilmPlayerScreen> with WidgetsBinding
   Duration _pos = Duration.zero, _dur = Duration.zero, _buf = Duration.zero;
   bool _playing = false, _buffering = true, _ready = false, _controls = true, _ended = false;
   String? _error;
+  String _errDetail = ''; // نص خطأ المحرك (للتشخيص)
+  bool _triedSoftware = false; // جرّبنا فك الترميز البرمجي بدل العتاد
 
   // التقديم
   bool _dragging = false;
@@ -76,6 +78,26 @@ class _FilmPlayerScreenState extends State<FilmPlayerScreen> with WidgetsBinding
     _scheduleHide();
   }
 
+  /// فشل التشغيل: المحاولة الأولى تلقائياً بفك ترميز برمجي (hwdec=no) فبعض الأجهزة تُفسد فك العتاد،
+  /// وإن فشلت أيضاً تظهر الرسالة مع نص الخطأ.
+  Future<void> _fail(String detail) async {
+    if (!_triedSoftware) {
+      _triedSoftware = true;
+      try {
+        await (_player.platform as dynamic).setProperty('hwdec', 'no');
+      } catch (_) {}
+      if (mounted) setState(() => _buffering = true);
+      await _start();
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _error = 'تعذّر تشغيل الفيلم — قد يكون الرابط معطّلاً أو الصيغة غير مدعومة';
+        _errDetail = detail;
+      });
+    }
+  }
+
   Future<void> _start() async {
     if (!_url.startsWith('https://')) {
       setState(() => _error = 'رابط الفيلم غير صالح');
@@ -95,7 +117,7 @@ class _FilmPlayerScreenState extends State<FilmPlayerScreen> with WidgetsBinding
       final si = sLang.isEmpty || sLang == 'off' ? -1 : _subTracks.indexWhere((t) => t.lang == sLang);
       if (si >= 0) await _setSub(si, remember: false);
     } catch (e) {
-      if (mounted) setState(() => _error = 'تعذّر تحميل الفيلم — تأكد من الاتصال بالإنترنت أو أن الرابط ما زال يعمل');
+      if (mounted) _fail('$e');
     }
   }
 
@@ -129,7 +151,13 @@ class _FilmPlayerScreenState extends State<FilmPlayerScreen> with WidgetsBinding
       }),
       s.error.listen((e) {
         if (!mounted || e.isEmpty) return;
-        setState(() => _error = 'تعذّر تشغيل الفيلم — قد يكون الرابط معطّلاً أو الصيغة غير مدعومة');
+        // خطأ mpv قد يكون عابراً (فك ترميز إطار) والفيلم يعمل: ننتظر 3 ثوانٍ ونحكم بتقدّم التشغيل لا بالخطأ نفسه
+        final at = _player.state.position;
+        Timer(const Duration(seconds: 3), () {
+          if (!mounted || _error != null) return;
+          final progressed = _player.state.playing && _player.state.position > at + const Duration(milliseconds: 500);
+          if (!progressed) _fail(e);
+        });
       }),
       s.subtitle.listen((lines) {
         if (!mounted) return;
@@ -423,12 +451,23 @@ class _FilmPlayerScreenState extends State<FilmPlayerScreen> with WidgetsBinding
             child: Text(_error!,
                 textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 18)),
           ),
+          if (_errDetail.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(60, 8, 60, 0),
+              child: Text(_errDetail,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.ltr,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            ),
           const SizedBox(height: 16),
           Row(mainAxisSize: MainAxisSize.min, children: [
             FilledButton(
               onPressed: () {
                 setState(() {
                   _error = null;
+                  _errDetail = '';
                   _buffering = true;
                 });
                 _start();
